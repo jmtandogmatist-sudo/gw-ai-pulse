@@ -5,6 +5,8 @@
 """
 from __future__ import annotations
 
+import json
+import logging
 import re
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
@@ -19,6 +21,58 @@ from ..models import Candidate
 
 CST = timezone(timedelta(hours=8))
 UA = "ai-radar-collector/0.1 (Goldwind internal intelligence station)"
+log = logging.getLogger("collector.sources.fetchers")
+
+# ---- 详情页取日期（2026-11-19 漏斗归因后加）----
+# 归因发现：每轮有 64 条候选因为「列表页不给日期」被 undated_policy=drop 丢掉，
+# 其中最刺眼的是国家网信办的政策条目——权威一手源，就这么没了。
+# 实测这些站的列表页确实没有日期元素，但详情页有：
+#   The Hacker News  <meta itemprop="datePublished" content="2026-11-09T16:57:00+05:30">
+#   中国能源网        <div class="showtitinfo">2026-11-19 09:17:23</div>
+# 所以给 listpage 加一个可选开关 date_from_detail：只对「没有日期」的条目补抓详情页。
+# 成本用预算和缓存两道闸控制，绝不因为补日期把一轮拖长。
+DATE_CACHE = Path(__file__).resolve().parents[2] / "state" / "date_cache.json"
+_DATE_META_KEYS = {"datepublished", "article:published_time", "article:published",
+                   "pubdate", "publishdate", "og:release_date", "sailthru.date", "date"}
+_MAX_DETAIL_DEFAULT = 8      # 每个信源每轮最多补抓几个详情页
+
+
+def _date_cache_load() -> dict:
+    try:
+        return json.loads(DATE_CACHE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def _date_cache_save(cache: dict) -> None:
+    try:
+        DATE_CACHE.parent.mkdir(parents=True, exist_ok=True)
+        # 只留最近 2000 条，避免这个缓存文件无限长大
+        if len(cache) > 2000:
+            cache = dict(list(cache.items())[-2000:])
+        DATE_CACHE.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
+    except OSError:      # 缓存写不进去不是抓取失败
+        pass
+
+
+def date_from_detail(url: str, src: dict) -> str | None:
+    """打开详情页取发布日期。先看 <meta>，再按 src.detail_date_selector 取元素文本。"""
+    html = http_get(url, timeout=int(src.get("timeout_seconds", 20)))
+    soup = BeautifulSoup(html, "html.parser")
+    for meta in soup.find_all("meta"):
+        key = (meta.get("itemprop") or meta.get("property") or meta.get("name") or "").strip().lower()
+        if key in _DATE_META_KEYS and meta.get("content"):
+            iso = to_cst_iso(meta["content"])
+            if iso:
+                return iso
+    sel = src.get("detail_date_selector")
+    if sel:
+        el = soup.select_one(sel)
+        if el:
+            iso = to_cst_iso(el.get_text(" "))
+            if iso:
+                return iso
+    return None
 
 
 def http_get(url: str, timeout: int = 20) -> str:
@@ -116,7 +170,38 @@ def fetch_listpage(src: dict) -> list[Candidate]:
             excerpt=_strip_html(excerpt_el.get_text(" ") if excerpt_el else ""),
             published_at=to_cst_iso(date_el.get_text(" ") if date_el else None),
         ))
-    return [c for c in out if c.title]
+    out = [c for c in out if c.title]
+
+    # 可选的详情页补日期（见文件头部说明）。只补「列表里没给日期」的，预算 + 缓存双闸。
+    if src.get("date_from_detail"):
+        budget = int(src.get("max_detail_fetches", _MAX_DETAIL_DEFAULT))
+        cache = _date_cache_load()
+        fetched = filled = 0
+        for c in out:
+            if c.published_at:
+                continue
+            cached = cache.get(c.url)
+            if cached:
+                c.published_at = cached
+                filled += 1
+                continue
+            if fetched >= budget:
+                break
+            try:
+                iso = date_from_detail(c.url, src)
+            except Exception as e:      # noqa: BLE001 —— 补日期失败不该让整个信源失败
+                log.warning("%s 详情页取日期失败（%s）：%s", src["name"], c.url[:60], e)
+                fetched += 1
+                continue
+            fetched += 1
+            if iso:
+                c.published_at = iso
+                cache[c.url] = iso
+                filled += 1
+        if fetched:
+            _date_cache_save(cache)
+            log.info("%s 详情页补日期：抓 %d 个、补到 %d 条", src["name"], fetched, filled)
+    return out
 
 
 def fetch_discourse(src: dict, base_url: str) -> list[Candidate]:

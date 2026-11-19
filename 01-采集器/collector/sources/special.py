@@ -7,9 +7,10 @@ from __future__ import annotations
 import html as html_lib
 import json
 import re
+from datetime import datetime
 
 from ..models import Candidate
-from .fetchers import http_get, to_cst_iso
+from .fetchers import CST, http_get, to_cst_iso
 
 AI_KEYWORDS_DEFAULT = [
     "ai", "llm", "gpt", "claude", "gemini", "model", "agent", "transformer", "diffusion", "rag",
@@ -81,7 +82,11 @@ def parse_github_trending(src: dict, html: str) -> list[Candidate]:
         desc_m = GH_DESC_RE.search(block)
         desc = html_lib.unescape(re.sub(r"<[^>]+>", "", desc_m.group(1))).strip() if desc_m else ""
         today = GH_TODAY_RE.search(block)
+        # 2026-11-19：趋势榜条目本身没有发布日期，之前 11/12 条因此被 undated 丢弃。
+        # 但「今天这个仓库上了趋势榜」确实是今天发生的事——日期取采集时刻是诚实的，
+        # 也符合去重（同一仓库 URL 只发一次）。不要伪造仓库创建时间。
         out.append(_cand(src, repo + (f"：{desc}" if desc else ""), f"https://github.com/{repo}",
+                         published=datetime.now(CST).isoformat(timespec="seconds"),
                          heat=int(today.group(1).replace(",", "")) if today else None, excerpt=desc))
     return out
 

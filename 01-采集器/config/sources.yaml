@@ -697,6 +697,11 @@ sources:
   selectors:
     item: div.pop-article
     link: a
+  # 2026-11-19：列表页没有日期元素（实测 27 条/轮 因此被判「无日期」丢弃），
+  # 但详情页有 <meta itemprop="datePublished">。启用详情页补日期，每轮最多 12 个（有缓存）。
+  date_from_detail: true
+  # 29 条里 27 条没日期；缓存落盘后只有首页换新的那几条需要真抓，所以给到 20。
+  max_detail_fetches: 20
 - name: GE Vernova
   module: wind_peers
   kind: rss
@@ -805,6 +810,11 @@ sources:
 - name: 东方电气
   module: wind_peers
   kind: listpage
+  # 2026-11-19 停用。实测两次：列表页无日期（4 条/轮 被 undated 丢弃），
+  # 详情页也取不到日期（无 <meta>、无稳定日期选择器），
+  # 而且 item: li 抓到的 4 条里 2 条是导航文字（「风电」「东方电气风电股份有限公司」）。
+  # 结论：这个地址不是新闻列表页。要恢复请先找到真正的新闻入口（RSS 或 /news/ 列表）。
+  enabled: false
   url: https://www.dongfang.com/
   tier: official
   default_domain: 能源AI
@@ -1014,6 +1024,11 @@ sources:
   selectors:
     item: li.singleline
     link: a
+  # 2026-11-19：列表页只有标题和链接（实测 20 条/轮 全被判「无日期」丢弃），
+  # 详情页 .showtitinfo 里有「2026-11-19 09:17:23」。每轮最多补 12 个（有缓存）。
+  date_from_detail: true
+  detail_date_selector: div.showtitinfo
+  max_detail_fetches: 20
   keywords: *id004
   max_items: 20
   enabled: true

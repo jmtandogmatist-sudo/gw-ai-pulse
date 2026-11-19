@@ -63,7 +63,15 @@ queries:
   - id: a-llm-release
     layer: A
     label_zh: "大模型版本发布"
-    query_en: ["LLM release update open source", "large language model new release"]
+    # 2026-11-19：补两家厂商的专有词。原来只有泛化的 "LLM release"，
+    # 而 Anthropic 官网 news 是 page 类型（按设计不抓）、站点也没有 RSS（实测 404），
+    # 所以 Claude 新模型发布此前只能靠转载；OpenAI 虽有 news RSS，但 1413 条的大 feed
+    # 容易被 72h 窗口外的噪音淹没。用检索词补一条稳定的发现通道。
+    query_en:
+      - "LLM release update open source"
+      - "large language model new release"
+      - "Anthropic Claude new model release"
+      - "OpenAI new model launch API"
     questions: [Q03]
 
   - id: a-enterprise-app

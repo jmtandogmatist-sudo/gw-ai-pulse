@@ -499,6 +499,22 @@ sources:
   verified: false
   note: Atom 解析失败且无可用替代 feed（全部 200 但 0 item），已由其他安全源覆盖
   enabled: false
+- name: NVIDIA 官方博客
+  module: compute
+  kind: rss
+  # 2026-11-19 补缺：算力模块此前只有 IT之家·算力 一家（二手转载）。
+  # NVIDIA 是 Q05（算力管制/芯片）的一手源头，此前 sources 里只有「英伟达」
+  # 一个过滤关键词，没有任何抓取通道。
+  # 实测 https://blogs.nvidia.com/feed/ → 200、18 条、带 pubDate。
+  # 注意：这是官方营销博客，keep 判定通常会给 false（属正常，别为此放宽门禁）；
+  # 价值在于「出口管制 / 新芯片 / 数据中心」这类条目出现时能第一时间拿到一手表述。
+  tier: official
+  default_domain: 算力
+  questions:
+  - Q05
+  url: https://blogs.nvidia.com/feed/
+  enabled: true
+  verified: false
 - name: IT之家 · 算力
   module: compute
   kind: rss

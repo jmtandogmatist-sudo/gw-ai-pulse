@@ -1,0 +1,307 @@
+{
+  "version": "1.0.0",
+  "note": "集团技术雷达配置。history 由每期发布自动追加，用来计算条目的移动（新 / ↑ / ↓ / —），不要手改。",
+  "forum": {
+    "signal_category_id": 20,
+    "radar_category_id": 15,
+    "radar_tags": [
+      "tech-radar"
+    ],
+    "feed_topic_id": 632
+  },
+  "work_dir": "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-tech-radar",
+  "entries_target": [
+    15,
+    25
+  ],
+  "quadrants": [
+    "模型",
+    "工具与平台",
+    "方法与流程",
+    "风电场景"
+  ],
+  "rings": {
+    "采纳": "集团内已稳定使用，新项目的默认选择",
+    "试用": "集团内至少一个真实项目在试",
+    "评估": "值得关注，尚无集团内使用证据",
+    "暂缓": "新项目不建议使用，须写明原因"
+  },
+  "history": [
+    {
+      "quarter": "2026Q4",
+      "published_at": "2026-11-09T13:35:18+08:00",
+      "entries": [
+        {
+          "name": "MNN-Pocket-0.3B",
+          "quadrant": "模型",
+          "ring": "评估",
+          "why": "0.3B 端侧模型，手机端 350 token/s、峰值内存低于 300MB，是巡检终端离线推理的可行候选。",
+          "evidence": [
+            {
+              "type": "signal",
+              "ref": "237",
+              "note": "淘宝 MNN 团队开源，iPhone 18 Pro 实测"
+            }
+          ],
+          "owner": "",
+          "url": ""
+        },
+        {
+          "name": "TwIL-8B",
+          "quadrant": "模型",
+          "ring": "评估",
+          "why": "基于 Granite-4.2-8B 的数学与代码专精模型，MATH-500 超过 Gemma 4 31B，可作低成本推理备选。",
+          "evidence": [
+            {
+              "type": "signal",
+              "ref": "231",
+              "note": "webAI 开源"
+            }
+          ],
+          "owner": "",
+          "url": ""
+        },
+        {
+          "name": "腾讯 Hy4",
+          "quadrant": "模型",
+          "ring": "评估",
+          "why": "调用量十倍扩容，Agent 能力称开源第一；权重开放与商用许可未确认，暂只做观察。",
+          "evidence": [
+            {
+              "type": "signal",
+              "ref": "224",
+              "note": "腾讯宣布扩建"
+            }
+          ],
+          "owner": "",
+          "url": ""
+        },
+        {
+          "name": "微软 VibeVoice",
+          "quadrant": "模型",
+          "ring": "评估",
+          "why": "开源语音模型，可作为智能客服与语音交互场景的替代候选，需实测中文效果。",
+          "evidence": [
+            {
+              "type": "signal",
+              "ref": "222",
+              "note": "微软 GitHub 开源"
+            }
+          ],
+          "owner": "",
+          "url": ""
+        },
+        {
+          "name": "GPT-6 Cyber",
+          "quadrant": "模型",
+          "ring": "暂缓",
+          "why": "面向漏洞挖掘的专用安全模型，授权边界与合规未评估，新项目不建议直接引入。",
+          "evidence": [
+            {
+              "type": "signal",
+              "ref": "217",
+              "note": "OpenAI 安全专用模型"
+            }
+          ],
+          "owner": "",
+          "url": ""
+        },
+        {
+          "name": "Claude Code",
+          "quadrant": "工具与平台",
+          "ring": "暂缓",
+          "why": "曝出向访问网站外发用户邮箱（单一来源未核实），澄清前新项目不建议默认启用。",
+          "evidence": [
+            {
+              "type": "signal",
+              "ref": "211",
+              "note": "Hacker News 讨论，未获官方回应"
+            }
+          ],
+          "owner": "",
+          "url": ""
+        },
+        {
+          "name": "OpenAI Codex CLI",
+          "quadrant": "工具与平台",
+          "ring": "评估",
+          "why": "0.167.0 新增智能体指挥中心，支持终端内切换后端与多会话，可评估纳入研发流程。",
+          "evidence": [
+            {
+              "type": "signal",
+              "ref": "215",
+              "note": "Codex 0.167.0 发布"
+            }
+          ],
+          "owner": "",
+          "url": ""
+        },
+        {
+          "name": "Gemini CLI",
+          "quadrant": "工具与平台",
+          "ring": "评估",
+          "why": "0.67.0 把 IDE 伴侣接入容器沙箱，容器化隔离做法值得跟进。",
+          "evidence": [
+            {
+              "type": "signal",
+              "ref": "226",
+              "note": "Gemini CLI v0.67.0"
+            }
+          ],
+          "owner": "",
+          "url": ""
+        },
+        {
+          "name": "Rivet（S3 智能体编排）",
+          "quadrant": "工具与平台",
+          "ring": "评估",
+          "why": "在 S3 上原生编排智能体，需评估与集团数据架构和权限体系的适配性。",
+          "evidence": [
+            {
+              "type": "signal",
+              "ref": "228",
+              "note": "Rivet 新产品发布"
+            }
+          ],
+          "owner": "",
+          "url": ""
+        },
+        {
+          "name": "agent-browser",
+          "quadrant": "工具与平台",
+          "ring": "评估",
+          "why": "Vercel Labs 的浏览器自动化 CLI，可用于智能体网页取数与自动化测试。",
+          "evidence": [
+            {
+              "type": "signal",
+              "ref": "220",
+              "note": "Vercel Labs 开源"
+            }
+          ],
+          "owner": "",
+          "url": ""
+        },
+        {
+          "name": "agent-desktop",
+          "quadrant": "工具与平台",
+          "ring": "评估",
+          "why": "Vercel Labs 的桌面交互 CLI，自动化测试与运维场景适用性待评估。",
+          "evidence": [
+            {
+              "type": "signal",
+              "ref": "219",
+              "note": "Vercel Labs 开源"
+            }
+          ],
+          "owner": "",
+          "url": ""
+        },
+        {
+          "name": "Worktrunk",
+          "quadrant": "工具与平台",
+          "ring": "评估",
+          "why": "Git worktree 并行管理工具，面向多智能体协作的代码分支管理。",
+          "evidence": [
+            {
+              "type": "signal",
+              "ref": "221",
+              "note": "GitHub Trending"
+            }
+          ],
+          "owner": "",
+          "url": ""
+        },
+        {
+          "name": "Perplexity Teammate",
+          "quadrant": "工具与平台",
+          "ring": "暂缓",
+          "why": "消费级订阅产品（需 Max），数据出境与合规不可控，不适配集团生产流程。",
+          "evidence": [
+            {
+              "type": "signal",
+              "ref": "218",
+              "note": "Perplexity 发布"
+            }
+          ],
+          "owner": "",
+          "url": ""
+        },
+        {
+          "name": "Google Agent Skills 库",
+          "quadrant": "工具与平台",
+          "ring": "评估",
+          "why": "Google 官方智能体技能封装库，其封装标准可参考用于集团工具链接口设计。",
+          "evidence": [
+            {
+              "type": "signal",
+              "ref": "214",
+              "note": "Google GitHub 开源"
+            }
+          ],
+          "owner": "",
+          "url": ""
+        },
+        {
+          "name": "AI 辅助漏洞挖掘流水线",
+          "quadrant": "方法与流程",
+          "ring": "评估",
+          "why": "自主完成发现、验证、打补丁闭环并处理 948 个内核提权漏洞，运维可借鉴该流程。",
+          "evidence": [
+            {
+              "type": "signal",
+              "ref": "216",
+              "note": "OpenAI 自主流水线"
+            }
+          ],
+          "owner": "",
+          "url": ""
+        },
+        {
+          "name": "智能体界面权限分级",
+          "quadrant": "方法与流程",
+          "ring": "评估",
+          "why": "论文提出「元访问」权限阶梯，可为集团智能体工具链的权限边界设计提供框架。",
+          "evidence": [
+            {
+              "type": "signal",
+              "ref": "230",
+              "note": "arXiv 论文"
+            }
+          ],
+          "owner": "",
+          "url": ""
+        },
+        {
+          "name": "巡检终端端侧推理",
+          "quadrant": "风电场景",
+          "ring": "评估",
+          "why": "结合端侧模型指标，巡检终端离线推理需现场验证功耗与识别准确率。",
+          "evidence": [
+            {
+              "type": "signal",
+              "ref": "237",
+              "note": "MNN-Pocket-0.3B 端侧指标，待现场验证"
+            }
+          ],
+          "owner": "",
+          "url": ""
+        },
+        {
+          "name": "语音工单与智能客服",
+          "quadrant": "风电场景",
+          "ring": "评估",
+          "why": "结合开源语音模型进展，风机运维语音工单转写与客服问答值得小范围验证。",
+          "evidence": [
+            {
+              "type": "signal",
+              "ref": "222",
+              "note": "微软 VibeVoice 开源，待实测中文"
+            }
+          ],
+          "owner": "",
+          "url": ""
+        }
+      ]
+    }
+  ]
+}

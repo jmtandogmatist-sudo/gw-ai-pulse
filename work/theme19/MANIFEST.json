@@ -1,0 +1,30 @@
+{
+  "PATCH.md": {
+    "bytes": 7266,
+    "sha256": "f1af66eddb1ee4ca2b82feabe265ebe083dd789970dfd1bf8912b7f5cdd7cb9f"
+  },
+  "about.json": {
+    "bytes": 375,
+    "sha256": "aab6ea5df561be480709c5c58804a021d9f8c59482208250b1537d0e06f58a07"
+  },
+  "settings.yml": {
+    "bytes": 6432,
+    "sha256": "4ff811e8442b3bc272b4e900d958a142edb95dbdb81a0d3ac8503a10716eb7b7"
+  },
+  "common/common.scss": {
+    "bytes": 22221,
+    "sha256": "77e8f208626fcce82e51b496d3efa0069ded1d8c8b8fb6703a1ad77f03e41ded"
+  },
+  "javascripts/discourse/components/ai-pulse-home.gjs": {
+    "bytes": 40609,
+    "sha256": "a5ccfce0a621cc3e133e6c6a60acf79e87b1deb9471a278546aec5fac50af516"
+  },
+  "javascripts/discourse/lib/ai-pulse-feed.js": {
+    "bytes": 24463,
+    "sha256": "28d2ceafb6a086d4395a13dd1f1d4e6b675835d951788fe41d2b8a2c7e0b0fd9"
+  },
+  "javascripts/discourse/api-initializers/ai-pulse-home.js": {
+    "bytes": 391,
+    "sha256": "e024d9edf00459de2f70439862030d7afc18a30540869a6e07f433dad45b0800"
+  }
+}

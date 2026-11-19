@@ -1,0 +1,457 @@
+{
+  "version": "1.3.0",
+  "note": "V4.3 源注册表：检索三层中 C 层（重点官方源）的单一清单。type=rss/atom/github_release 由 fetch_sources.py 确定性抓取；type=page 无订阅接口，由执行 Agent 打开页面核查并写入检索清单 official_sources_checked。verified=false 表示 feed 地址尚未在生产网络实测，首次运行后据 fetch 报告改为 true 或修正。 V5.0：layer=signal 的源供第三层·信号雷达，cat 为雷达类别，keywords=\"default\" 时按内置 AI 关键词过滤，min_heat 为热度下限。 V5.2.3：补 deepseek-ai/DeepSeek-Harness 的 GitHub Releases——DeepSeek 工程型产品（Harness / Creator Mode / Trajectory）首发在 Releases，api-docs 站无 news 流，11-03 因只登记文档站而漏检。 V5.3.2（2026-11-10）：新增政策监管线 nea-news（国家能源局新闻中心）——此前 27 条源全为 AI 厂商阵地，无任何 .gov.cn，政策类线索只能靠媒体转载偶然命中，与「宁可少报、不可误报」的一手源要求冲突；政策栏目 JS 渲染暂不可静态取，先由新闻中心覆盖，见 nea-policy 条目 note。政策源不在 REQUIRED_OFFICIAL_SOURCES 内，不改变 G1–G4 门禁强度，但检索清单 official_sources_checked 应逐期登记其核查结果。 2026-11-16 gw-ai-pulse：collector_covered=true 的源已由采集器 sources.yaml 覆盖，fetch_sources.py 兜底时默认跳过（--only 或 --include-covered 可强制抓）。",
+  "defaults": {
+    "timeout_seconds": 15,
+    "max_items_per_source": 20
+  },
+  "sources": [
+    {
+      "id": "openai-news",
+      "entity": "OpenAI / Codex",
+      "type": "rss",
+      "url": "https://openai.com/news/rss.xml",
+      "tier": "T0",
+      "topics": [
+        "模型发布",
+        "Agent基础设施"
+      ],
+      "enabled": true,
+      "verified": false,
+      "collector_covered": true
+    },
+    {
+      "id": "openai-codex",
+      "entity": "OpenAI / Codex",
+      "type": "github_release",
+      "repo": "openai/codex",
+      "tier": "T0",
+      "topics": [
+        "AI编程"
+      ],
+      "enabled": true,
+      "verified": false,
+      "collector_covered": true
+    },
+    {
+      "id": "anthropic-news",
+      "entity": "Anthropic / Claude",
+      "type": "page",
+      "url": "https://www.anthropic.com/news",
+      "tier": "T0",
+      "topics": [
+        "模型发布"
+      ],
+      "enabled": true,
+      "collector_covered": true
+    },
+    {
+      "id": "claude-code",
+      "entity": "Anthropic / Claude",
+      "type": "github_release",
+      "repo": "anthropics/claude-code",
+      "tier": "T0",
+      "topics": [
+        "AI编程",
+        "Agent基础设施"
+      ],
+      "enabled": true,
+      "verified": false,
+      "collector_covered": true
+    },
+    {
+      "id": "deepmind-blog",
+      "entity": "Google DeepMind / Gemini",
+      "type": "rss",
+      "url": "https://deepmind.google/blog/rss.xml",
+      "tier": "T0",
+      "topics": [
+        "模型发布",
+        "研究进展"
+      ],
+      "enabled": true,
+      "verified": false,
+      "collector_covered": true
+    },
+    {
+      "id": "google-ai-blog",
+      "entity": "Google DeepMind / Gemini",
+      "type": "rss",
+      "url": "https://blog.google/technology/ai/rss/",
+      "tier": "T0",
+      "topics": [
+        "模型发布",
+        "企业应用"
+      ],
+      "enabled": true,
+      "verified": false,
+      "collector_covered": true
+    },
+    {
+      "id": "gemini-cli",
+      "entity": "Google DeepMind / Gemini",
+      "type": "github_release",
+      "repo": "google-gemini/gemini-cli",
+      "tier": "T0",
+      "topics": [
+        "AI编程"
+      ],
+      "enabled": true,
+      "verified": false,
+      "collector_covered": true
+    },
+    {
+      "id": "meta-ai-blog",
+      "entity": "Meta AI / Llama",
+      "type": "page",
+      "url": "https://ai.meta.com/blog/",
+      "tier": "T0",
+      "topics": [
+        "模型发布"
+      ],
+      "enabled": true,
+      "collector_covered": true
+    },
+    {
+      "id": "microsoft-ai",
+      "entity": "Microsoft AI",
+      "type": "page",
+      "url": "https://news.microsoft.com/source/topics/ai/",
+      "tier": "T0",
+      "topics": [
+        "企业应用"
+      ],
+      "enabled": true,
+      "verified": false,
+      "note": "2026-10-30 验证：blogs.microsoft.com/ai 已跳转至此；页面无可读日期，暂按 page 处理",
+      "collector_covered": true
+    },
+    {
+      "id": "xai-news",
+      "entity": "xAI",
+      "type": "page",
+      "url": "https://x.ai/news",
+      "tier": "T0",
+      "topics": [
+        "模型发布"
+      ],
+      "enabled": true,
+      "collector_covered": true
+    },
+    {
+      "id": "deepseek-api-news",
+      "entity": "DeepSeek",
+      "type": "page",
+      "url": "https://api-docs.deepseek.com/sitemap.xml",
+      "tier": "T0",
+      "topics": [
+        "模型发布"
+      ],
+      "enabled": true,
+      "status": "url_fixed_2026-11-02",
+      "note": "原 api-docs.deepseek.com/news/news 与 /news、/ 均因站点自身 Docusaurus baseUrl 配置错误渲染为报错壳页（返回 'Your First API Call' + baseUrl banner），无新闻入口。改用 sitemap.xml 发现最新 /news/newsNNNNNN 条目（单条页可正常读取，如 news261017 = DeepSeek-V4.1-Flash-1017）。2026-11-02 公司网络实测。",
+      "collector_covered": false
+    },
+    {
+      "id": "qwen-blog",
+      "entity": "Alibaba / Qwen",
+      "type": "page",
+      "url": "https://qwen.ai/research",
+      "tier": "T0",
+      "topics": [
+        "模型发布"
+      ],
+      "enabled": true,
+      "note": "2026-10-30 验证：qwenlm.github.io 已停更并提示迁移；新站为前端渲染，WebFetch 不可直读，需浏览器打开",
+      "collector_covered": true
+    },
+    {
+      "id": "doubao",
+      "entity": "ByteDance / 豆包",
+      "type": "page",
+      "url": "https://seed.bytedance.com/zh/blog",
+      "tier": "T0",
+      "topics": [
+        "模型发布"
+      ],
+      "enabled": true,
+      "note": "2026-10-30 验证：前端渲染不可直读，需浏览器打开",
+      "collector_covered": true
+    },
+    {
+      "id": "zhipu",
+      "entity": "智谱",
+      "type": "page",
+      "url": "https://docs.bigmodel.cn/cn/update/new-releases",
+      "tier": "T0",
+      "topics": [
+        "模型发布"
+      ],
+      "enabled": true,
+      "collector_covered": true
+    },
+    {
+      "id": "moonshot",
+      "entity": "月之暗面",
+      "type": "page",
+      "url": "https://platform.kimi.com/blog",
+      "tier": "T0",
+      "topics": [
+        "模型发布"
+      ],
+      "enabled": true,
+      "note": "2026-10-30 验证：platform.moonshot.cn/blog 302 跳转至此",
+      "collector_covered": true
+    },
+    {
+      "id": "minimax",
+      "entity": "MiniMax",
+      "type": "page",
+      "url": "https://www.minimax.cn/news",
+      "tier": "T0",
+      "topics": [
+        "模型发布"
+      ],
+      "enabled": true,
+      "note": "2026-10-30 验证：minimaxi.com/news 302 跳转至此",
+      "collector_covered": true
+    },
+    {
+      "id": "baidu-ernie",
+      "entity": "百度",
+      "type": "page",
+      "url": "https://yiyan.baidu.com/blog/",
+      "tier": "T0",
+      "topics": [
+        "模型发布"
+      ],
+      "enabled": true,
+      "note": "2026-10-30 验证：博客最新为 2025-12，疑似停更，建议改用文心官方公告页",
+      "collector_covered": true
+    },
+    {
+      "id": "tencent-hunyuan",
+      "entity": "腾讯混元",
+      "type": "page",
+      "url": "https://hunyuan.tencent.com/",
+      "tier": "T0",
+      "topics": [
+        "模型发布"
+      ],
+      "enabled": true,
+      "note": "2026-10-30 验证：前端渲染不可直读，需浏览器打开",
+      "collector_covered": true
+    },
+    {
+      "id": "mcp-spec",
+      "entity": "MCP 生态",
+      "type": "github_release",
+      "repo": "modelcontextprotocol/modelcontextprotocol",
+      "tier": "T0",
+      "topics": [
+        "Agent基础设施"
+      ],
+      "enabled": true,
+      "verified": false,
+      "collector_covered": true
+    },
+    {
+      "id": "hf-blog",
+      "entity": "Hugging Face",
+      "type": "rss",
+      "url": "https://huggingface.co/blog/feed.xml",
+      "tier": "T0",
+      "topics": [
+        "开源模型"
+      ],
+      "enabled": true,
+      "verified": false,
+      "collector_covered": true
+    },
+    {
+      "id": "hn-front",
+      "entity": "Hacker News",
+      "type": "hn_top",
+      "url": "https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=60",
+      "tier": "T4",
+      "layer": "signal",
+      "cat": "社区热议",
+      "keywords": "default",
+      "min_heat": 80,
+      "enabled": true,
+      "verified": false,
+      "collector_covered": true
+    },
+    {
+      "id": "arxiv-ai",
+      "entity": "arXiv cs.AI / cs.CL",
+      "type": "atom",
+      "url": "http://export.arxiv.org/api/query?search_query=cat:cs.AI+OR+cat:cs.CL&sortBy=submittedDate&sortOrder=descending&max_results=60",
+      "tier": "T3",
+      "layer": "signal",
+      "cat": "前沿论文",
+      "enabled": true,
+      "verified": false,
+      "collector_covered": true
+    },
+    {
+      "id": "github-trending",
+      "entity": "GitHub Trending",
+      "type": "github_trending",
+      "url": "https://github.com/trending?since=daily",
+      "tier": "T4",
+      "layer": "signal",
+      "cat": "开源与模型",
+      "keywords": "default",
+      "enabled": true,
+      "verified": false,
+      "collector_covered": true
+    },
+    {
+      "id": "hf-trending",
+      "entity": "Hugging Face 热门模型",
+      "type": "hf_trending",
+      "url": "https://huggingface.co/api/models?sort=trendingScore&direction=-1&limit=20",
+      "tier": "T3",
+      "layer": "signal",
+      "cat": "开源与模型",
+      "enabled": true,
+      "verified": false,
+      "collector_covered": true
+    },
+    {
+      "id": "deepseek-harness-release",
+      "entity": "DeepSeek / Harness",
+      "type": "github_release",
+      "repo": "deepseek-ai/DeepSeek-Harness",
+      "tier": "T0",
+      "topics": [
+        "Agent基础设施",
+        "AI编程"
+      ],
+      "enabled": true,
+      "verified": true,
+      "collector_covered": false
+    },
+    {
+      "id": "nea-news",
+      "entity": "国家能源局 · 新闻中心",
+      "type": "page",
+      "url": "https://www.nea.gov.cn/xwzx/index.htm",
+      "tier": "T1",
+      "topics": [
+        "政策监管",
+        "能源行业"
+      ],
+      "enabled": true,
+      "verified": true,
+      "note": "2026-11-10 实测 HTTP 200，静态 HTML 含 29 条带日期路径条目（/YYYYMMDD/<hash>/c.html，覆盖约 8 周），可按日期前缀判窗口，无需渲染。亦承载政策发文（如「国家能源局发文推动煤电与新能源融合发展」）。只扫标题层，命中 AI/算力/数字化/新能源 关键词才展开正文。",
+      "collector_covered": true
+    },
+    {
+      "id": "nea-policy",
+      "entity": "国家能源局 · 政策文件（通知/公告/解读）",
+      "type": "page",
+      "url": "https://www.nea.gov.cn/policy/tz.htm",
+      "tier": "T1",
+      "topics": [
+        "政策监管"
+      ],
+      "enabled": false,
+      "verified": false,
+      "note": "暂不启用：tz/gg/jd 三个政策栏目为 JS 动态渲染（Vue），静态 HTML 仅 1.3KB 无条目，curl 直取拿不到列表；带 UA 与 Referer 同样无效。启用前提是接入浏览器渲染。过渡方案：政策发文多经新闻中心（nea-news）与「解读」栏目转发，先由 nea-news 覆盖。",
+      "collector_covered": true
+    },
+    {
+      "id": "cpnn-news",
+      "entity": "中国电力报 · 中国能源传媒集团",
+      "type": "page",
+      "url": "https://www.cpnn.com.cn/",
+      "tier": "T1",
+      "topics": [
+        "能源行业",
+        "政策监管",
+        "AI应用"
+      ],
+      "enabled": true,
+      "verified": true,
+      "note": "2026-11-11 实测 HTTP 200，静态首页含 198 条标题、其中 6 条为 AI+能源（「国家能源局公示人工智能+能源试点项目清单」「智能体发展自律公约」「十五五优先聚焦矿山开采等场景组织人工智能+应用攻关」「南网慧诊小助手智能体」）。能源全产业链（发电/电网/装备/煤油气）覆盖最好的国内媒体，AI 线索密度约 3%。只扫标题层，命中 AI/大模型/智能体/算法/数字化 才展开正文。",
+      "collector_covered": false
+    },
+    {
+      "id": "xinhua-energy",
+      "entity": "新华网 · 能源频道",
+      "type": "page",
+      "url": "http://www.news.cn/energy/",
+      "tier": "T1",
+      "topics": [
+        "能源行业",
+        "政策监管"
+      ],
+      "enabled": true,
+      "verified": true,
+      "note": "2026-11-11 实测 HTTP 200，静态页含 35 条标题，承接国家发改委/能源局发文转载（如《煤炭工业发展十五五规划》印发）。作为政策原文的第三方权威交叉源，用于 R37 式的两源互证，不单独作为首发依据。",
+      "collector_covered": false
+    },
+    {
+      "id": "china5e-news",
+      "entity": "中国能源网",
+      "type": "page",
+      "url": "https://www.china5e.com/",
+      "tier": "T2",
+      "topics": [
+        "能源行业"
+      ],
+      "enabled": true,
+      "verified": true,
+      "note": "2026-11-11 实测首页 200（/news/ 路径 404，用根域）。能源行业综合门户，补煤/油/气与电力市场的 AI 应用线索。抓不到列表时记 ERROR，不得记为已检查。",
+      "collector_covered": false
+    },
+    {
+      "id": "vestas-news",
+      "entity": "Vestas",
+      "type": "page",
+      "url": "https://www.vestas.com/en/media/company-news",
+      "tier": "T1",
+      "topics": [
+        "竞品动态",
+        "风电"
+      ],
+      "enabled": true,
+      "verified": true,
+      "note": "2026-11-11 实测 HTTP 200。全球风电整机份额第一，金风直接对标。注意：实测其公司新闻页 AI 关键词命中极低（多为导航词误命中），AI 相关更新通常以「digital solutions / service optimization」题名出现，须按语义而非字面 AI 判读。属竞品阵地，不对标题做 AI 关键词硬过滤，改为人工判读是否含 AI/数字化要素。",
+      "collector_covered": false
+    },
+    {
+      "id": "siemensgamesa-news",
+      "entity": "Siemens Gamesa",
+      "type": "page",
+      "url": "https://www.siemensgamesa.com/en-int/newsroom",
+      "tier": "T1",
+      "topics": [
+        "竞品动态",
+        "风电"
+      ],
+      "enabled": true,
+      "verified": true,
+      "note": "2026-11-11 实测 HTTP 200（www.siemensgamesa.com/newsroom 为 404，须用 /en-int/newsroom）。西门子能源旗下风电整机。竞品阵地，同样按语义判读 AI 要素。",
+      "collector_covered": false
+    },
+    {
+      "id": "gevernova-news",
+      "entity": "GE Vernova",
+      "type": "page",
+      "url": "https://www.gevernova.com/news",
+      "tier": "T1",
+      "topics": [
+        "竞品动态",
+        "风电",
+        "能源装备"
+      ],
+      "enabled": true,
+      "verified": false,
+      "note": "2026-11-11 实测 HTTP 200 但 /news 为导航聚合页（33 条长标题全为板块入口，无新闻列表），未能定位到真实新闻列表路径。verified=false：抓取时若仍无列表须记 ERROR 并在 latest_update 说明，不得凭此页判定「GE 无 AI 动态」。",
+      "collector_covered": true
+    }
+  ]
+}

@@ -1,0 +1,289 @@
+// AI 情报站话题样式 v1
+// 作用于采集器、主题档案、技术雷达发出的帖子里的 [wrap=ais-*] 区块；与日报的 air-* 样式、首页的 ap-* 样式互不影响。
+// 没装本组件时，这些帖子降级为普通段落，内容完整可读。
+// 颜色用 color-mix 叠加主题变量，浅色 / 深色配色都可读。
+
+$ais-g: #2f8f5b;
+$ais-y: #c18a1b;
+$ais-r: #c4503f;
+$ais-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif;
+
+.cooked,
+.d-editor-preview {
+  --ais-line: color-mix(in srgb, var(--primary) 14%, transparent);
+  --ais-soft: color-mix(in srgb, var(--primary) 4%, var(--secondary));
+  --ais-blue-soft: color-mix(in srgb, var(--tertiary) 8%, var(--secondary));
+
+  [data-wrap^="ais-"] > p:first-child {
+    margin-top: 0;
+  }
+  [data-wrap^="ais-"] > :last-child {
+    margin-bottom: 0;
+  }
+
+  // ---------- 信号话题 ----------
+  [data-wrap="ais-signal"] {
+    position: relative;
+    padding: 1.1em 1.3em 1em;
+    border: 1px solid var(--ais-line);
+    border-left: 5px solid var(--ais-line);
+    border-radius: 8px;
+    background: var(--secondary);
+
+    &[data-cred="g"] { border-left-color: $ais-g; }
+    &[data-cred="y"] { border-left-color: $ais-y; }
+    &[data-cred="r"] { border-left-color: $ais-r; }
+
+    // 右上角审核状态
+    &::before {
+      position: absolute;
+      top: 0.9em;
+      right: 1em;
+      padding: 0.1em 0.7em;
+      border-radius: 999px;
+      font-size: var(--font-down-2);
+      line-height: 1.7;
+    }
+    &[data-review="auto"]::before {
+      content: "未审 · 机器采集";
+      background: color-mix(in srgb, #{$ais-y} 15%, var(--secondary));
+      color: var(--primary-high);
+    }
+    &[data-review="reviewed"]::before {
+      content: "已审";
+      background: color-mix(in srgb, #{$ais-g} 16%, var(--secondary));
+      color: var(--primary-high);
+    }
+  }
+
+  [data-wrap="ais-summary"] {
+    margin: 0 0 0.9em;
+    padding-right: 7em; // 给右上角状态让位
+    font-size: 1.06em;
+    line-height: 1.8;
+
+    p:first-child strong { font-size: var(--font-down-1); color: var(--primary-medium); font-weight: 600; }
+  }
+
+  [data-wrap="ais-us"],
+  [data-wrap="ais-judge"] {
+    margin: 0 0 0.9em;
+    padding: 0.75em 1em;
+    border-radius: 6px;
+    background: var(--ais-blue-soft);
+    line-height: 1.75;
+
+    p:first-child strong { color: var(--tertiary); }
+  }
+
+  [data-wrap="ais-src"] {
+    margin: 0 0 0.9em;
+    font-size: var(--font-down-1);
+
+    p:first-child strong { color: var(--primary-medium); font-weight: 600; }
+    ul { margin: 0.2em 0 0; padding-left: 1.2em; }
+  }
+
+  [data-wrap="ais-meta"] {
+    padding-top: 0.7em;
+    border-top: 1px dashed var(--ais-line);
+    font-size: var(--font-down-1);
+    color: var(--primary-medium);
+
+    p, ul { margin: 0.3em 0; }
+    strong { color: var(--primary-high); }
+  }
+
+  // ---------- 主题档案 ----------
+  [data-wrap="ais-dossier"] {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9em;
+
+    > [data-wrap] { margin: 0; }
+  }
+
+  [data-wrap="ais-judge"] {
+    font-size: 1.05em;
+    p:first-child strong { font-family: $ais-serif; font-size: 1.05em; }
+  }
+
+  [data-wrap="ais-change"],
+  [data-wrap="ais-next"] {
+    padding: 0.6em 1em;
+    border: 1px solid var(--ais-line);
+    border-radius: 6px;
+    line-height: 1.7;
+
+    p:first-child strong { color: var(--primary-medium); font-size: var(--font-down-1); }
+  }
+
+  [data-wrap="ais-timeline"] {
+    ul { margin: 0.3em 0 0; padding-left: 0; list-style: none; }
+    li {
+      padding: 0.35em 0 0.35em 0.9em;
+      border-left: 2px solid var(--ais-line);
+      font-size: var(--font-down-1);
+    }
+  }
+
+  [data-wrap="ais-history"] {
+    font-size: var(--font-down-1);
+    color: var(--primary-medium);
+    ul { margin: 0.3em 0 0; }
+  }
+
+  // ---------- 技术雷达 ----------
+  [data-wrap="ais-radar"] {
+    blockquote { margin-bottom: 1em; }
+    table { width: 100%; }
+  }
+
+  [data-wrap="ais-ring"] {
+    margin: 0 0 1.2em;
+    padding: 0.2em 1em 0.8em;
+    border: 1px solid var(--ais-line);
+    border-top: 4px solid var(--ais-line);
+    border-radius: 6px;
+
+    h2 { margin: 0.5em 0 0.4em; font-family: $ais-serif; font-size: 1.2em; }
+    &[data-ring="adopt"] { border-top-color: $ais-g; }
+    &[data-ring="trial"] { border-top-color: var(--tertiary); }
+    &[data-ring="assess"] { border-top-color: $ais-y; }
+    &[data-ring="hold"] { border-top-color: $ais-r; }
+
+    .md-table { overflow-x: auto; }
+    td:nth-child(3) { text-align: center; white-space: nowrap; }
+  }
+
+  [data-wrap="ais-changes"] {
+    padding: 0.2em 1em 0.6em;
+    border-radius: 6px;
+    background: var(--ais-soft);
+
+    h2 { margin: 0.5em 0 0.3em; font-size: 1.1em; }
+  }
+}
+
+@media (max-width: 700px) {
+  .cooked [data-wrap="ais-summary"] {
+    padding-right: 0;
+    padding-top: 1.6em; // 手机上状态标签在上方
+  }
+}
+
+// ============================================================================
+// v2（2026-11-19）：头顶状态带 / 底部信息带 / 折叠块归一 / 长文标题降级
+// 用法：整段粘在上面的 v1 之后（同一个 scss 文件里），不改 v1 一行。
+// 依据：拿线上真实帖子的 cooked HTML 做过 A/B（865 普通信号、866 焦点长文、870 普通信号，
+// 桌面 900px 与手机 430px 两档）。修掉的问题见 docs/2026-11-19-话题样式对比与v2方案.md。
+// ============================================================================
+.cooked,
+.d-editor-preview {
+  --ais-band: color-mix(in srgb, var(--primary) 3.5%, var(--secondary));
+
+  [data-wrap="ais-signal"] {
+    padding-top: 2.9em; // 让出头顶状态带
+
+    // 头顶色带：胶囊进带，正文永不被压住
+    &::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      height: 2.2em;
+      background: var(--ais-band);
+      border-bottom: 1px solid var(--ais-line);
+      border-radius: 7px 7px 0 0;
+    }
+    &::before {
+      top: 0.5em;
+      right: 1.1em;
+      z-index: 1; // 压在色带之上
+    }
+
+    // v1 的 padding-right 让位 hack 作废
+    & > :first-child { padding-right: 0; }
+
+    // 长文（焦点篇）标题降为 kicker，正文收到 68ch
+    h2 {
+      margin: 1.25em 0 0.3em;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      color: var(--primary-medium);
+    }
+    & > p { max-width: 68ch; }
+    // 块首直接是 <p> 时（焦点篇导语）放大一档；普通信号块首是 ais-summary，不受影响
+    & > p:first-child { font-size: 1.12em; line-height: 1.85; }
+
+    // 卡内折叠块（研判 / 关键事实与引文）收成脚注
+    details {
+      margin: 0.6em 0 0.9em;
+      padding: 0.1em 0.85em;
+      border: 1px dashed var(--ais-line);
+      border-radius: 6px;
+      background: var(--ais-band);
+
+      & > summary {
+        padding: 0.55em 0;
+        font-size: var(--font-down-1);
+        color: var(--primary-medium);
+        font-weight: 600;
+      }
+    }
+
+    // 卡外折叠块（机器可读数据）与卡片同一套语言
+    & ~ details {
+      margin: 0.5em 0 0.2em;
+      padding: 0 0.9em;
+      border: 1px solid var(--ais-line);
+      border-radius: 8px;
+      background: var(--ais-band);
+
+      & > summary {
+        padding: 0.55em 0;
+        font-size: var(--font-down-1);
+        color: var(--primary-medium);
+      }
+    }
+  }
+
+  [data-wrap="ais-summary"] { padding-right: 0; }
+
+  // 元信息变成卡片底部信息带（负边距吃掉卡片内边距，贴住圆角）
+  [data-wrap="ais-meta"] {
+    margin: 0.2em -1.3em -1em;
+    padding: 0.85em 1.3em 0.95em;
+    background: var(--ais-band);
+    border-top: 1px solid var(--ais-line);
+    border-radius: 0 0 7px 7px;
+    font-size: var(--font-down-1);
+    line-height: 1.7;
+
+    p:first-child {
+      margin-top: 0;
+      color: var(--primary-high);
+      font-weight: 600;
+    }
+    // 最后一行（事件日期 / 采集于）退到最低视觉权重
+    & > :last-child {
+      margin-bottom: 0;
+      color: var(--primary-low-mid);
+      font-size: var(--font-down-2);
+    }
+  }
+
+  [data-wrap="ais-src"] ul { padding-left: 1em; }
+}
+
+@media (max-width: 700px) {
+  .cooked [data-wrap="ais-signal"] { padding-top: 2.7em; }
+  .cooked [data-wrap="ais-meta"] {
+    margin-left: -1.1em;
+    margin-right: -1.1em;
+    padding-left: 1.1em;
+    padding-right: 1.1em;
+  }
+}

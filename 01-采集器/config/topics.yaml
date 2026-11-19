@@ -1,0 +1,58 @@
+# 首页 05「主题追踪」的主题白名单。
+#
+# 与 skills/ai-topic-dossier/config/topics.json 的关系（2026-11-16）：
+#   tag 必须一致（标签由采集器打、由论坛存），但这里归采集器所有——
+#   因为 judge/change/next 现在由模型写（周五 17:00），不再由编辑手填。
+#   要加主题：先加到 tags.yaml 的 topics，再在这里加一条。
+#
+# dossier_topic_id 是「主题档案」话题的 ID。填了，首页点主题就跳到那份每周更新的完整档案；
+# 留空则退回该主题时间线上最新的一条信号话题。
+#
+# 2026-11-19：运行期回填的 id 存在 state/topic_dossiers.json（scripts/backfill_dossiers.py
+# 建帖后写入），pipeline.update_feed_topics() 每次刷新 topics 前会读它；这里的字段留空即可，
+# 两处同时填时以这里为准（便于人工覆盖）。
+
+lookback_days: 7          # 「本周 +N」统计最近几天
+timeline_days: 30         # 判断可引用的信号范围（与 skill 一致）
+max_topics_on_home: 5     # 首页最多显示几个主题
+
+# 2026-11-19：主题档案帖（首页 04 点进去的目标页）
+dossier_category_id: 15   # 档案帖所在分类（趋势与情报）
+dossier_tags: ["dossier"]
+timeline_limit: 20        # 档案时间线最多列多少条（安全主题 30 天有 50+ 条）
+history_limit: 12         # 「历史判断」保留多少期
+dossiers:
+  enabled: true           # 关掉 = 只更新 632、url 退回信号帖（回滚开关）
+
+topics:
+  - name: 功率预测 AI
+    tag: topic-power-forecast
+    questions: ["Q01", "Q02"]
+    on_home: true
+
+  - name: 国产大模型选型
+    tag: topic-domestic-llm
+    questions: ["Q03"]
+    on_home: true
+
+  - name: 智能体与 MCP 安全
+    tag: topic-agent-security
+    questions: ["Q07"]
+    on_home: true
+
+  - name: 集团 AI 能力上新
+    tag: topic-internal        # 采集器给 RSS 信号打的主题标签
+    questions: ["Q08"]
+    on_home: true
+    # 2026-11-19：这个主题的真正内容在社区——同事发帖时打的这些标签。
+    # 周更时按标签回读论坛（排除分类 20 信号），与本地信号索引合并去重。
+    # 标签不存在就跳过（ai探索与应用平台 / ai数字员工共享中心 / 风衍 目前还没人用）；
+    # 以后加标签只改这里，不用动代码。
+    extra_tags:
+      - 集团ai能力上新
+      - ai智能体开发平台
+      - 版本更新
+      - 版本迭代
+      - ai探索与应用平台
+      - ai数字员工共享中心
+      - 风衍

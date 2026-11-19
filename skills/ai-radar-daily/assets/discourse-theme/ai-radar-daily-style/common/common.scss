@@ -1,0 +1,149 @@
+// AI 雷达日报样式 v2（对齐 10.30 两层样稿）
+// 只作用于 data-wrap="air-*" 区块；颜色用 color-mix 叠加主题变量，深浅配色都可读。
+
+$air-teal: #0f5f6e;
+$air-ok: #2f7d4f;
+$air-warn: #b07a12;
+$air-risk: #b3412f;
+$air-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif;
+
+.cooked, .d-editor-preview {
+  --air-accent: color-mix(in srgb, #{$air-teal} 72%, var(--primary));
+  --air-accent-soft: color-mix(in srgb, #{$air-teal} 10%, var(--secondary));
+  --air-muted: var(--primary-medium);
+  --air-line: var(--primary-low);
+
+  // 整篇日报容器：标题用衬线体
+  [data-wrap="air-daily"] {
+    h1, h2 { font-family: $air-serif; font-weight: 700; letter-spacing: 0.01em; }
+    h1 { font-size: 1.9em; margin-bottom: 0.3em; }
+    h2 { font-size: 1.35em; margin: 1.6em 0 0.2em; }
+    blockquote { border-left-color: var(--air-accent); }
+  }
+
+  // 每层的一句说明
+  [data-wrap="air-lede"] {
+    color: var(--air-muted);
+    font-size: 0.93em;
+    margin: 0 0 0.9em;
+    p { margin: 0; }
+  }
+
+  // 统计块
+  [data-wrap="air-stats"] {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--air-line);
+    border: 1px solid var(--air-line);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 1em 0 0.6em;
+  }
+  [data-wrap="air-stat"] {
+    background: var(--secondary);
+    padding: 0.75em 1em;
+    p { margin: 0; color: var(--air-muted); font-size: 0.87em; line-height: 1.4; }
+    strong {
+      display: block;
+      font-family: $air-serif;
+      font-size: 2em;
+      line-height: 1.15;
+      color: var(--primary);
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  // 可信度分布（色条由 JS 生成，图例为帖子原文）
+  [data-wrap="air-mix"] {
+    margin: 0 0 1.2em;
+    p { margin: 0.35em 0 0; color: var(--air-muted); font-size: 0.87em; }
+  }
+  .air-mixbar {
+    display: flex;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    i { display: block; }
+    .g { background: $air-ok; }
+    .y { background: $air-warn; }
+    .r { background: $air-risk; }
+  }
+
+  // 卡片（精编、跟踪、雷达共用）
+  [data-wrap="air-card"], [data-wrap="air-sig"] {
+    background: var(--secondary);
+    border: 1px solid var(--air-line);
+    border-left: 4px solid var(--primary-low-mid);
+    padding: 0.8em 1em 0.7em;
+    margin: 0 0 0.7em;
+    p { margin: 0.25em 0; max-width: 72ch; }
+    h4 { margin: 0.35em 0 0.2em; font-size: 1.06em; font-weight: 600; line-height: 1.5; }
+  }
+  [data-wrap="air-card"][data-cred="g"], [data-wrap="air-sig"][data-cred="g"] { border-left-color: $air-ok; }
+  [data-wrap="air-card"][data-cred="y"], [data-wrap="air-sig"][data-cred="y"] { border-left-color: $air-warn; }
+  [data-wrap="air-card"][data-cred="r"], [data-wrap="air-sig"][data-cred="r"] { border-left-color: $air-risk; }
+  [data-wrap="air-sig"][hidden] { display: none; }
+
+  // 卡片顶部小标签：用 <span data-air-chip="…"> 写（同一行多个 [wrap] 会被 Discourse 误配对）
+  [data-air-chip] {
+    display: inline-block;
+    font-size: 0.8em;
+    line-height: 1.4;
+    padding: 0.1em 0.5em;
+    border: 1px solid var(--air-line);
+    border-radius: 4px;
+    margin-right: 0.35em;
+    color: var(--air-muted);
+    white-space: nowrap;
+    img.emoji { width: 1em; height: 1em; vertical-align: -0.1em; }
+  }
+  [data-air-chip="sec"] { color: var(--air-accent); border-color: var(--air-accent); }
+  [data-air-chip="cred"][data-cred="g"] { color: #{$air-ok}; border-color: #{$air-ok}; }
+  [data-air-chip="cred"][data-cred="y"] { color: #{$air-warn}; border-color: #{$air-warn}; }
+  [data-air-chip="cred"][data-cred="r"] { color: #{$air-risk}; border-color: #{$air-risk}; }
+  [data-air-chip="from"] { border: 0; padding-left: 0.1em; }
+
+  // “对我们”
+  [data-wrap="air-us"] {
+    background: var(--air-accent-soft);
+    border-radius: 4px;
+    padding: 0.45em 0.8em;
+    margin: 0.5em 0 0.3em;
+    max-width: 72ch;
+    p { margin: 0; }
+    strong:first-child { color: var(--air-accent); }
+  }
+
+  // 来源域名行
+  [data-wrap="air-src"] {
+    font-size: 0.85em;
+    p { margin: 0.3em 0 0; }
+    a { color: var(--air-accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  }
+
+  // 雷达筛选栏（JS 生成）
+  .air-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4em;
+    align-items: center;
+    margin-bottom: 0.8em;
+    .btn { border-radius: 999px; }
+    .btn.is-active { background: var(--primary); color: var(--secondary); }
+    label {
+      margin-left: auto;
+      font-size: 0.87em;
+      color: var(--air-muted);
+      display: inline-flex;
+      gap: 0.3em;
+      align-items: center;
+    }
+  }
+
+  @media (max-width: 600px) {
+    [data-wrap="air-stats"] { grid-template-columns: repeat(2, 1fr); }
+    [data-wrap="air-daily"] h1 { font-size: 1.5em; }
+  }
+}

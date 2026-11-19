@@ -1,0 +1,11 @@
+# 公司网络打不开的域名（2026-11-02 实测）。由运营按实测维护。
+blocked:
+  - kotaku.com
+  - thenextweb.com
+  - webdisclosure.com
+  - freepressjournal.in
+reachable_checked:
+  - thepaypers.com
+  - gamedeveloper.com
+  - unite.ai
+  - macaubusiness.com

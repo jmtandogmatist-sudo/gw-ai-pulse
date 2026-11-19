@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>测试源</title>
+<item><title>某整机厂发布风电场运维大模型</title><link>https://media.example.com/a?utm_source=rss</link><description>覆盖故障诊断与备件预测。</description><pubDate>Wed, 04 Nov 2026 22:00:00 GMT</pubDate></item>
+<item><title>某整机厂发布风电场运维大模型</title><link>https://other.example.com/b</link><description>另一家媒体的报道。</description><pubDate>Wed, 04 Nov 2026 23:00:00 GMT</pubDate></item>
+<item><title>AI 公司招聘算法工程师</title><link>https://media.example.com/jobs</link><description>招聘。</description><pubDate>Wed, 04 Nov 2026 20:00:00 GMT</pubDate></item>
+<item><title>三个月前的旧闻</title><link>https://media.example.com/old</link><description>旧。</description><pubDate>Mon, 03 Aug 2026 08:00:00 GMT</pubDate></item>
+<item><title>被屏蔽站点上的文章</title><link>https://www.kotaku.com/x</link><description>打不开。</description><pubDate>Wed, 04 Nov 2026 21:00:00 GMT</pubDate></item>
+</channel></rss>

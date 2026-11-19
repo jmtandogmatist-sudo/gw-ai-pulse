@@ -1,0 +1,217 @@
+# 采集器主配置。密钥不写在这里，只写钥匙串里的条目名（见 README「存密钥」）。
+
+discourse:
+  base_url: https://aicopilot.goldwind.com.cn:3211
+  api_username: U8570                    # 方案B：暂用 admin 账号跑通（原设计为 ai-radar 机器人账号，尚未创建）
+  api_key_secret: discourse-api-key      # 钥匙串条目名
+  signal_category_id: 20                 # 「信号」分类 ID（2026-11-06 建于论坛，slug=signals）
+  # gw-ai-pulse（2026-11-19 21:47 匿名实测，不带任何凭据）：
+  #   /c/20/show.json → 200 且 read_restricted=false；/t/{信号话题}.json 与 /raw/632/1 均 200。
+  #   即分类 20 与 632 对所有人可读，含未登录访客；原注释「staff-only（仅内部可见）」已过期。
+  # 这带来两个后果，写在下面两行，改动前先看：
+  #   1) 每条信号正文里的「AI 研判」（us，即原「对金风」研判）与问题编号都匿名可读；
+  #      公开口径要按「任何人都能看到」来写，而不是按内部备忘写（2026-11-19 已改 tagger 提示词）。
+  #      机器可读块也在正文里，但它已排除 title/summary/us（见 render.topic_body），
+  #      暴露的是编排字段（questions/relevance/cred/signal_id）；主题档案 skill 依赖它解析，暂不动。
+  #   2) 分类 15 的公开镜像不再是可达性补丁：20 本身已开放，同一信号双发只会制造重复帖。
+  #      它现在的实际产出是 0 篇（门槛 relevance≥3，全库 119 条只有 2 条能过）。
+  #      2026-11-19 决定：保持现状不动 —— publish_public 仍为 true、门槛不变，
+  #      等真有「需要单独对外发布」的内容时再按人工精选使用它，届时再调门槛。
+  public_category_id: 15                 # 「趋势与情报」分类（公开可读）
+  publish_public: true
+  public_min_cred: yellow                # 双重验证门槛：green/yellow 视为已验证，red=单一来源不公开
+  public_min_relevance: 3                # 重要门槛：只公开「直接影响业务」的
+  post_interval_seconds: 16              # 两次发帖的间隔；论坛对非管理员账号有发帖频率限制
+  min_title_chars: 15                    # 与论坛站点设置 min_topic_title_length 保持一致
+  verify_tls: true
+  # gw-ai-pulse（2026-11-19）：论坛 admin API key 有「每分钟 N 次」的限额，超了返回 429
+  # （Discourse-Rate-Limit-Error-Code: admin_api_key_rate_limit）。那天 08:00 那一轮
+  # 社区扫描要逐条补发帖人（55 次请求），限额一次打满，之后每个请求都吃 429 睡眠，
+  # 一轮跑 43 分钟没结束，单实例锁被占住，12:00 / 16:00 两轮被跳过，首页整天没更新。
+  # min_request_interval：任意两次请求之间的最小间隔（秒）
+  # max_requests_per_minute：每分钟上限，留出余量给论坛侧的其他调用（0=不限）
+  min_request_interval: 1.0
+  max_requests_per_minute: 40
+
+llm:
+  # OpenAI 兼容网关。**本行就是唯一事实源**：采集器不读取任何仓外配置文件
+  # （tests/test_config_coverage.py 有一条不变量测试守着
+  # 「collector/ 下不得出现 Path.home()/expanduser/workbuddy」）。
+  #
+  # 2026-11-19 22:40 换网关：10.111.32.151:3001（内网 IP）→ aicopilot.goldwind.com.cn:3213（域名，
+  # 与论坛同一个 CloudWAF 后面）。实测：GET /v1/models 200，可用 qwen3.8-27b / deepseek-v4.1-flash 等；
+  # chat 调用 1.6 秒返回；钥匙串里的 key 直接可用，无需更换。
+  #
+  # ⚠ 这里只写``到 /v1``为止，不要写成 ``…/v1/chat/completions``：
+  # LLMClient 会自己拼 ``{base_url}/chat/completions``（collector/tagger.py:98），
+  # 写全路径会变成 ``/v1/chat/completions/chat/completions`` → 404。
+  base_url: https://aicopilot.goldwind.com.cn:3213/v1
+  model: qwen3.8-27b
+  api_key_secret: llm-api-key
+  batch_size: 8                          # 每次调用送几条
+  # 单次模型调用超时。2026-11-17 实测：接口偶发「连接建立但迟迟不返回」，
+  # 每次调用都要烧满超时。一轮约 21–29 次调用，90 秒 → 一轮能拖到 30 分钟以上
+  # （正常一轮 3–6 分钟）。降到 45 秒，最坏情况砍半，且 45 秒对正常调用足够
+  # （实测正常响应 1.7 秒）。
+  timeout_seconds: 45
+
+round:
+  # 采集时刻表（北京时间）。必须与 launchd/com.goldwind.gw-pulse.round.plist 一致；首页据此判断“采集是否暂停”
+  # gw-ai-pulse（2026-11-16）：改为每天 08:00 / 12:00 / 16:00 三轮，不分工作日和节假日。
+  # 改这里必须同步改 plist，否则 632 的 radar_next_at 与实际执行错位，首页会误报“采集可能暂停”。
+  schedule:
+    weekdays: ["08:00", "12:00", "16:00"]
+    weekends: ["08:00", "12:00", "16:00"]
+  # gw-ai-pulse（2026-11-16）容错：断电/断网/关机导致错过时间点时的补跑策略。
+  # catchup_after_hours：距上次**成功完成**超过这么多小时，认为错过了至少一轮。
+  # catchup_min_gap_minutes：但若距下一个计划时间点不到这么多分钟，就不补跑（马上要跑，避免重复抓）。
+  catchup_after_hours: 8
+  catchup_min_gap_minutes: 90
+  # 网络重试：所有信源都失败时（多半是断网），每隔 retry_delay_seconds 重试，最多 retry_attempts 次。
+  retry_attempts: 3
+  retry_delay_seconds: 900
+  # gw-ai-pulse（2026-11-19）：本轮硬性时间上限（秒）。超过就抛 RoundTimeout，
+  # 走 run_round 的 finally（写 runs 表、发告警、释放单实例锁）。
+  # 为什么必须有：08:00 那一轮卡在网络/限速睡眠里 43 分钟，进程既不报错也不退出，
+  # 锁一直被占着，后面两轮启动即跳过——首页一整天不更新，而日志里连一句失败都没有。
+  # 正常一轮 3–8 分钟，20 分钟足够宽松；0 = 不设上限。
+  max_seconds: 1200
+  window_hours: 72                       # 只收 72 小时内的新闻
+  # gw-ai-pulse（2026-11-16）：published_at 为空的条目此前完全绕过 72h 窗口（`if c.published_at and ...` 短路），
+  # 导致 2026-10-30 的网信办公告被当新信号发布。现在先从 URL 日期戳补日期；
+  # 仍提不出日期的按此策略处理：drop = 不入池（默认，无法证明新鲜就不收）；keep = 放行并单独计数
+  undated_policy: drop
+  # gw-ai-pulse（2026-11-16）标题指纹去重：URL 去重只挡「同一链接」，挡不住转载站、
+  # 镜像站、各媒体各发一篇的「同一事件不同链接」。event_key 带日期，换天再报也会漏。
+  # 因此用标题相似度与近 title_dedup_days 天已发信号比对。
+  # 阈值校准（30 条真实信号）：最高 0.50，0.75 不误杀；构造用例同标题微调 1.000、
+  # 去公司名 0.969、换主体 0.750、中英混用 0.884（加别名后）。
+  title_dedup_threshold: 0.75            # ≥ 此值判为重复，不发帖
+  title_dedup_ambiguous: 0.60            # 介于二者之间记待人工（设 0 关闭该区间）
+  title_dedup_days: 3                    # 与近几天已发信号比对
+  min_relevance_to_post: 2               # gw-ai-pulse P2：1 会灌入股价/人事/财报类噪声；2 = 值得相关团队知道
+  max_posts_per_round: 30               # gw-ai-pulse P2 验证已通过（2026-11-13 实跑 5 条），恢复 30
+  merge_window_days: 14                  # 同一事件只合并进 14 天内的旧话题
+  source_fail_alert_after: 3             # 单个信源连续失败几轮后告警一次
+  keep_blocked_links: false              # 公司网络打不开的链接是否仍收录
+
+# gw-ai-pulse（2026-11-19）来源白名单补判（方案 C 最小版，P1）。
+# 问题：keep 是唯一实质闸门，判据却是「与集团问题是否相关」；一手官方发布往往只有
+# 「发布了什么」，没有对金风的解读，最容易被判掉 —— 2026-11-19 实测 OpenAI / Anthropic /
+# DeepMind 三类官方源 20 条候选只留下 3 条，97 条信号里 30% 反而来自 IT之家 这类二手媒体。
+# 做法：第一遍被判 keep=false、且信源在本名单里的候选，用补判提示词（tagger.FORCE_KEEP_RULE）
+# 再问一次，只让它补字段、不再重新权衡「要不要」；取舍责任交给这份人工名单。
+# 安全边界：补判只放宽 keep，relevance 仍由模型照常给，round.min_relevance_to_post 这道
+# 门槛不变 —— 救回来的条目如果只是行业背景（relevance=1）照样不会发帖。
+# sources 必须与 config/sources.yaml 里的 name 原文完全一致（含空格、斜杠、中文）。
+# 出问题就 enabled: false 一键回退到旧行为。
+# 名单里的每一个名字都必须是「真能抓到」的信源：check-config 会检查这一点
+# （config.coverage_warnings），抓不到的名字是空转的白名单，不是覆盖率。
+keep_bypass:
+  enabled: true
+  sources:
+    # 模型厂商官方发布（一手）
+    #
+    # 2026-11-19：移出 10 家 —— Meta AI / Llama、Microsoft AI、xAI、Alibaba / Qwen、
+    # ByteDance / 豆包、智谱、月之暗面、MiniMax、百度、腾讯混元。
+    # 原因：它们在 sources.yaml 里只有 kind: page 一条通道（无 RSS、前端渲染、站点已迁移），
+    # 而 page 源按设计不参加定时抓取。名单留着它们不会报错，只会让「一手源覆盖」长期虚高：
+    # 26 条白名单里 10 条永远不可能命中，补判逻辑对它们一次都不会触发。
+    # 重新纳入的前提是先把通道做出来（RSS / API / sitemap / 专用抓取器），能抓到再逐条加回；
+    # 加回后跑 python -m collector check-config，覆盖检查会告诉你它是不是真的能被抓。
+    - OpenAI / Codex
+    - Anthropic / Claude
+    - Google DeepMind / Gemini
+    - DeepSeek 官方更新日志
+    - DSH 主仓库
+    # 监管与政策原文（一手）
+    - 国家网信办
+    - 国家能源局
+    - 国家发展改革委
+    - 工业和信息化部
+    # 行业机构与整机厂官方（一手）
+    - GWEC 全球风能理事会
+    - WindEurope 欧洲风能协会
+    - BNEF 彭博新能源财经
+    - GE Vernova
+    - Nordex 恩德
+    - 东方电气
+    - 新华网 · 能源频道
+
+# gw-ai-pulse（2026-11-19）今日焦点长文（方案 A）。
+# 问题：02 焦点原先就是 01 的第一条，素材只有 RSS 摘要（实测 105 字），渲染出来必然是一句话；
+# 前端 ap-lead 也只画一段，结构上不可能有第二段。
+# 做法：每轮最多挑一条信号做「长文」——抓原文正文 → 模型抽「事实 + 原文引文」
+# → 代码逐字校验引文（这是「不能是一句话」和「不能编」的调和点）→ 按固定骨架成稿
+# → 发一篇长文话题，首页 02 只放导语 + 3 条要点，标题链到话题。
+# 规则 a（2026-11-19 定）：本轮没有新的焦点级事件就不出稿，首页沿用上一轮的焦点，不重复发文。
+# 任何一步失败都退回一句话 summary —— 焦点不能成为新的单点故障。
+focus:
+  enabled: true
+  recency_hours: 24          # 焦点候选必须是这么多小时内的事件
+  max_tries: 3               # 顺位最多试几条候选（正文抓不到/校验不过就换下一条）
+  fetch_timeout_seconds: 20
+  fetch_max_chars: 8000      # 送进模型的正文上限；太长会挤掉模型的注意力
+  min_body_chars: 200        # 抽出来的正文短于这个数就认为抽取失败，换下一条候选
+                             # （真正的质量闸门是 claims_min：正文再长、事实对不上也没用）
+  claims_min: 4              # 逐字校验通过的事实少于这个数 → 出「简讯」版
+  degraded_claims_min: 2     # 少于这个数 → 本轮不出焦点
+  llm_timeout_seconds: 90    # 焦点两次调用单独放宽（批量判定仍用 llm.timeout_seconds=45）
+  llm_max_tokens: 1600
+  tag: focus                 # 焦点话题额外的论坛标签，用于筛选与后续归档
+
+feed:
+  enabled: true                          # gw-ai-pulse P2：采集器每轮直写 632 的 radar 字段（只改 radar*，其余原样保留）
+  topic_id: 632
+  window_hours: 72
+  # gw-ai-pulse（2026-11-17）：60 → 40。
+  # 事故：Discourse 拒绝 >32000 字符的正文，而 radar 无上限增长，2026-11-17 15:03
+  # 涨到 33950 字符 → 整篇写入 422 → 首页整天不刷新，采集器却记 feed_updated=false 看起来「正常」。
+  # 72 小时窗口内实际也就 38 条，40 足够；再配合 render.write_feed 的兜底二分收缩，
+  # 无论数据怎么长都不会再因超长而写失败。
+  max_items: 40
+  # gw-ai-pulse（2026-11-19）：同源限额。IT之家一轮 27 条、一天 3 轮，不限额时
+  # 01 的三条、02 的焦点全是它。设 0 = 回退旧行为（不限）。
+  brief_max_per_source: 1                # 01 今天发生了什么 / 02 今日焦点 / 今日主线
+  picks_max_per_source: 2                # 01 今日值得看（防止一家插件仓库刷满四格）
+  summary_limit: 320                     # 每条 summary 的字符上限（与前端 LIMITS.summary 一致）
+  cred_format: code                      # g / y / r，与首页组件 v0.2 的 ai-pulse-feed.js 一致；不要改
+  sample_file: tests/fixtures/feed_632.md   # 试运行时模拟底座帖的初始内容
+
+  # 02 右栏「金风 / 能源相关」（v0.4.7）。
+  # 原先右栏读分类 18「深度阅读」，但 06 栏目更新里也有一列深度阅读，两块重复。
+  # 改成按集团问题筛能源向信号：Q01 风电 AI 场景、Q02 人工智能+ 能源政策、
+  # Q09 AI 用电需求与风电机会；domain=能源AI 直接命中。
+  # 2026-11-17 实测 72h 窗口内命中 7/37 条，够填 3 个位置。
+  energy:
+    enabled: true
+    count: 3
+    questions: ["Q01", "Q02", "Q09"]
+    domains: ["能源AI"]
+
+# gw-ai-pulse（2026-11-16）：AI 社区（论坛真实帖子）→ 首页「社区今日」「今日一问」，
+# 以及给主题档案统计「本周 +N」。日报停用后这两块不再由编辑手写。
+community:
+  enabled: true
+  per_category: 8          # 每个分类取最新几篇候选
+  # gw-ai-pulse（2026-11-16）实测：全社区 42 篇公开帖，近 3 天 0 篇、近 7 天 2 篇、近 14 天 10 篇。
+  # 7 天太紧，首页这块会只剩两条；14 天能让「社区今日」保持 5 条且都是当月内容。
+  community_days: 14
+
+  community_count: 5       # 「社区新帖」显示几条
+  # v0.4.6：首页这块从「社区今日（按热度）」改成「社区新帖（按时间）」，
+  # 「热」由组件另拉近 30 天热门榜，两列内容才不会打架。
+  # new=按发帖时间倒序（默认）；hot=按回复/点赞/浏览量倒序（旧行为）。
+  community_order: new
+  exclude_ids: []          # 额外排除的分类（信号分类会自动排除）
+  # v0.4.6：排除带这些标签的话题。采集器自己发的信号话题都带 auto，
+  # 它们会被镜像一份到公开分类 15，不排除的话「社区新帖」里全是机器人自己发的，
+  # 而且和 03 信号雷达重复。设成 [] 可关掉这道过滤（不建议）。
+  exclude_tags: ["auto"]
+  question_limit: 8        # 生成「今日一问」时参考前几个热帖
+  tag_posts: true          # 是否给社区帖子打主题标签（原地打标签，不复制帖子）
+
+alerts:
+  enabled: true
+  webhook_secret: feishu-webhook         # 钥匙串里存飞书机器人 webhook 地址
+  # sign_secret: feishu-sign             # 机器人开了「签名校验」时取消注释

@@ -1,0 +1,170 @@
+{
+  "report_date": "2026-11-16",
+  "generated_at": "2026-11-16T11:32:33+08:00",
+  "window_dates": [
+    "2026-11-13",
+    "2026-11-14",
+    "2026-11-15",
+    "2026-11-16"
+  ],
+  "items": [],
+  "sources": [
+    {
+      "source_id": "signal-library",
+      "entity": "论坛信号库",
+      "type": "signal_library",
+      "status": "EMPTY",
+      "checked": true,
+      "url": "https://aicopilot.goldwind.com.cn:3211/c/20",
+      "checked_at": "2026-11-16T11:32:33+08:00",
+      "entries_seen": 1,
+      "in_window": 0
+    }
+  ],
+  "manual_pages": [
+    {
+      "source_id": "anthropic-news",
+      "entity": "Anthropic / Claude",
+      "type": "page",
+      "tier": "T0",
+      "url": "https://www.anthropic.com/news"
+    },
+    {
+      "source_id": "meta-ai-blog",
+      "entity": "Meta AI / Llama",
+      "type": "page",
+      "tier": "T0",
+      "url": "https://ai.meta.com/blog/"
+    },
+    {
+      "source_id": "microsoft-ai",
+      "entity": "Microsoft AI",
+      "type": "page",
+      "tier": "T0",
+      "url": "https://news.microsoft.com/source/topics/ai/"
+    },
+    {
+      "source_id": "xai-news",
+      "entity": "xAI",
+      "type": "page",
+      "tier": "T0",
+      "url": "https://x.ai/news"
+    },
+    {
+      "source_id": "deepseek-api-news",
+      "entity": "DeepSeek",
+      "type": "page",
+      "tier": "T0",
+      "url": "https://api-docs.deepseek.com/sitemap.xml"
+    },
+    {
+      "source_id": "qwen-blog",
+      "entity": "Alibaba / Qwen",
+      "type": "page",
+      "tier": "T0",
+      "url": "https://qwen.ai/research"
+    },
+    {
+      "source_id": "doubao",
+      "entity": "ByteDance / 豆包",
+      "type": "page",
+      "tier": "T0",
+      "url": "https://seed.bytedance.com/zh/blog"
+    },
+    {
+      "source_id": "zhipu",
+      "entity": "智谱",
+      "type": "page",
+      "tier": "T0",
+      "url": "https://docs.bigmodel.cn/cn/update/new-releases"
+    },
+    {
+      "source_id": "moonshot",
+      "entity": "月之暗面",
+      "type": "page",
+      "tier": "T0",
+      "url": "https://platform.kimi.com/blog"
+    },
+    {
+      "source_id": "minimax",
+      "entity": "MiniMax",
+      "type": "page",
+      "tier": "T0",
+      "url": "https://www.minimax.cn/news"
+    },
+    {
+      "source_id": "baidu-ernie",
+      "entity": "百度",
+      "type": "page",
+      "tier": "T0",
+      "url": "https://yiyan.baidu.com/blog/"
+    },
+    {
+      "source_id": "tencent-hunyuan",
+      "entity": "腾讯混元",
+      "type": "page",
+      "tier": "T0",
+      "url": "https://hunyuan.tencent.com/"
+    },
+    {
+      "source_id": "nea-news",
+      "entity": "国家能源局 · 新闻中心",
+      "type": "page",
+      "tier": "T1",
+      "url": "https://www.nea.gov.cn/xwzx/index.htm"
+    },
+    {
+      "source_id": "cpnn-news",
+      "entity": "中国电力报 · 中国能源传媒集团",
+      "type": "page",
+      "tier": "T1",
+      "url": "https://www.cpnn.com.cn/"
+    },
+    {
+      "source_id": "xinhua-energy",
+      "entity": "新华网 · 能源频道",
+      "type": "page",
+      "tier": "T1",
+      "url": "http://www.news.cn/energy/"
+    },
+    {
+      "source_id": "china5e-news",
+      "entity": "中国能源网",
+      "type": "page",
+      "tier": "T2",
+      "url": "https://www.china5e.com/"
+    },
+    {
+      "source_id": "vestas-news",
+      "entity": "Vestas",
+      "type": "page",
+      "tier": "T1",
+      "url": "https://www.vestas.com/en/media/company-news"
+    },
+    {
+      "source_id": "siemensgamesa-news",
+      "entity": "Siemens Gamesa",
+      "type": "page",
+      "tier": "T1",
+      "url": "https://www.siemensgamesa.com/en-int/newsroom"
+    },
+    {
+      "source_id": "gevernova-news",
+      "entity": "GE Vernova",
+      "type": "page",
+      "tier": "T1",
+      "url": "https://www.gevernova.com/news"
+    }
+  ],
+  "mode": "signal_library",
+  "summary": {
+    "sources_total": 20,
+    "fetched_ok": 1,
+    "errors": 0,
+    "items_in_window": 0,
+    "signal_items": 0,
+    "core_items": 0,
+    "reviewed_items": 0,
+    "manual_pages": 19
+  }
+}

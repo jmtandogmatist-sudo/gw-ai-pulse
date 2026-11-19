@@ -1,0 +1,175 @@
+feed_topic_id:
+  default: 632
+  type: integer
+  min: 0
+  description: "数据底座帖所在话题的 ID（现为 632）。0 表示关闭整个 AI 雷达首页区块。该话题须对匿名用户可读。"
+
+feed_post_number:
+  default: 1
+  type: integer
+  min: 1
+  description: "数据在话题的第几楼，默认第 1 楼。"
+
+outlet_name:
+  default: "discovery-list-container-top"
+  type: string
+  description: "区块插入的位置（插件出口名）。若首页看不到区块，可改成 above-main-container 再试。"
+
+homepage_paths:
+  default: "/,/latest"
+  type: string
+  description: "显示区块的页面路径，英文逗号分隔。默认只在首页（/ 与 /latest）显示。"
+
+brand_title:
+  default: "AI 雷达"
+  type: string
+  description: "区块大标题。"
+
+brand_subtitle:
+  default: "每日洞察 AI 赋能风电"
+  type: string
+  description: "大标题下的一行副标题。"
+
+schedule_note:
+  default: "工作日 07:30 · 12:30 · 18:30 自动采集"
+  type: string
+  description: "右上角的更新节奏说明。"
+
+show_search:
+  default: false
+  type: bool
+  description: "显示“搜索社区”输入框。v0.4 起默认关闭：论坛页头已有搜索，两处重复。"
+
+side_source:
+  default: "energy"
+  type: string
+  description: "“今日焦点”右侧栏取什么：energy＝采集器按集团问题（Q01 风电 AI 场景 / Q02 人工智能+能源政策 / Q09 AI 用电需求与风电机会）筛出的能源向信号（默认）；category＝按下面的 side_category 读某个论坛分类。"
+
+side_label:
+  default: "金风 / 能源相关"
+  type: string
+  description: "右侧栏标题（side_source=energy 时用）。"
+
+energy_note:
+  default: "从下方信号雷达按能源视角挑选"
+  type: string
+  description: "右侧栏底部的小字说明。这一栏的条目同样存在于下方“信号雷达”里（雷达保持完整，不做删减），写明来源避免读者以为漏了。留空则不显示。"
+
+side_category:
+  default: "18:深度阅读"
+  type: string
+  description: "side_source=category 时，右侧栏读取的分类，格式 分类ID:显示名。注意：分类 18 深度阅读在“栏目更新”里已经有一列，两边都开会看起来像重复（虽然会自动去重）。"
+
+column_categories:
+  default: "18:深度阅读,19:一招一式,16:金风实践,7:AI工具与办公"
+  type: string
+  description: "“栏目更新”读取的分类，格式 分类ID:显示名，英文逗号分隔，按顺序显示。留空则不显示。v0.4.6 起补上深度阅读（18）：这一块会跳过右侧栏已出现的话题，所以和“今日焦点”不重复。"
+
+topics_per_column:
+  default: 3
+  type: integer
+  min: 1
+  max: 8
+  description: "每个栏目与右侧栏显示几篇。"
+
+hot_count:
+  default: 5
+  type: integer
+  min: 0
+  max: 10
+  description: "“社区热帖”显示几篇（读论坛“近 30 天最热”，读不到时退回本周热门、全站热门）。0 表示不显示。"
+
+hot_period:
+  default: "monthly"
+  type: string
+  description: "“社区热帖”的热度时间窗，可填 monthly（近 30 天，默认）、weekly（近 7 天）、quarterly（近 90 天）。v0.4.5 之前用的是全站历史热门，会混进半年前的帖子。"
+
+theme_tags:
+  default: "agent:智能体,大模型:大模型,skills:Skills"
+  type: string
+  description: "“按主题看”读取的标签，格式 标签:显示名，英文逗号分隔。标签名要和论坛里实际的标签一致（可以是中文）。留空则不显示这一块。"
+
+show_themes:
+  default: false
+  type: bool
+  description: "是否显示“按主题看”（标签驱动的跨分类聚合）。v0.4.6 默认关闭：社区现在人力内容总量约 30 天 18 篇，前面几块已经把新帖子用完，按主题聚合只能取到 6–9 月的旧帖（实测 #大模型 最新一篇是 8 月）。等各标签的近 90 天帖子攒到 3 篇以上再打开。"
+
+hot_note:
+  default: "近 30 天热议"
+  type: string
+  description: "“社区热帖”标题后的小字说明。留空则不显示。"
+
+event_category:
+  default: "17:赛事培训"
+  type: string
+  description: "“赛事培训”区块读取的分类，格式 分类ID:显示名。留空则不显示。"
+
+event_count:
+  default: 5
+  type: integer
+  min: 1
+  max: 10
+  description: "“赛事培训”显示几篇（按发帖时间从新到旧，新帖在前）。"
+
+event_note:
+  default: "最新发布"
+  type: string
+  description: "“赛事培训”标题后的小字说明。留空则不显示。"
+
+ask_category:
+  default: 4
+  type: integer
+  min: 0
+  description: "“今日一问”旁边“我也说说 →”按钮打开编辑器时预选的分类 ID。0 表示不预选分类。"
+
+ask_entry:
+  default: true
+  type: bool
+  description: "是否在“今日一问”下面显示“我也说说 →”发帖入口。"
+
+radar_initial_count:
+  default: 12
+  type: integer
+  min: 3
+  max: 60
+  description: "信号雷达默认先显示多少条，其余点“展开其余”。"
+
+stale_hours:
+  default: 36
+  type: integer
+  min: 1
+  description: "过期提示的兜底规则：数据带“下一轮更新时间”时，超过该时间 6 小时仍未更新才提示（周末、节假日不会误报）；不带时，超过这里的小时数才提示。"
+
+collapse_radar_on_mobile:
+  default: true
+  type: bool
+  description: "手机端默认折叠信号雷达。"
+
+radar_stale_grace_hours:
+  default: 2
+  type: integer
+  min: 1
+  description: "信号雷达过期提示：采集器写了下一轮时间时，超过它这么多小时仍未刷新才提示“采集可能暂停”。"
+
+radar_stale_hours:
+  default: 16
+  type: integer
+  min: 1
+  description: "信号雷达过期提示的兜底规则：数据里没有下一轮时间时，距上次刷新超过这么多小时才提示。"
+
+show_topics:
+  default: true
+  type: bool
+  description: "显示“主题追踪”区块（数据由主题档案 skill 每周写入底座帖 topics 字段）。"
+
+show_stance:
+  default: true
+  type: bool
+  description: "显示“集团技术雷达”区块（数据由技术雷达 skill 每季度写入底座帖 stance 字段）。"
+
+curated_initial_count:
+  default: 3
+  type: integer
+  min: 1
+  max: 20
+  description: "精编默认显示几条（按与金风相关度排序，跳过上面简报、值得看已出现的），其余折叠在“展开其余 N 条”里。"

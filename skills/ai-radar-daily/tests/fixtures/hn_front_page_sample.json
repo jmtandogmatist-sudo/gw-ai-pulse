@@ -1,0 +1,45 @@
+{
+ "hits": [
+  {
+   "objectID": "50289418",
+   "title": "We're releasing the weights of Mistral Large 4",
+   "url": "https://mistral.ai/news/mistral-large-4-oss/",
+   "points": 805,
+   "created_at": "2026-10-29T14:13:21Z"
+  },
+  {
+   "objectID": "50287919",
+   "title": "DoorDash to acquire Instacart",
+   "url": "https://about.doordash.com/en-us/news/doordash-to-acquire-instacart",
+   "points": 282,
+   "created_at": "2026-10-29T12:33:05Z"
+  },
+  {
+   "objectID": "50290177",
+   "title": "LLM Voice",
+   "url": "https://martinfowler.com/bliki/LLM-Voice.html",
+   "points": 163,
+   "created_at": "2026-10-29T14:57:55Z"
+  },
+  {
+   "objectID": "50290283",
+   "title": "Zombie stats: Where the numbers AI quotes come from",
+   "url": "https://trakkr.ai/trakkr-research/zombie-stats",
+   "points": 97,
+   "created_at": "2026-10-29T15:06:17Z"
+  },
+  {
+   "objectID": "50290912",
+   "title": "Grace Blackwell needs a new scheduler: 27% more usable GPUs from the same racks",
+   "url": "https://skypilot.ai/blog/grace-blackwell-needs-a-new-scheduler",
+   "points": 88,
+   "created_at": "2026-10-29T15:45:05Z"
+  },
+  {
+   "objectID": "50291116",
+   "title": "Launch HN: Simantic (YC F26) – Firmware Simulation for AI Agents",
+   "points": 22,
+   "created_at": "2026-10-29T15:56:32Z"
+  }
+ ]
+}

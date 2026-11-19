@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.goldwind.gw-pulse.weekly</string>
+
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/.venv/bin/python</string>
+		<string>-m</string>
+		<string>collector</string>
+		<string>weekly-report</string>
+	</array>
+
+	<key>WorkingDirectory</key>
+	<string>/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/01-采集器</string>
+
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>AIR_KEYCHAIN_SERVICE</key>
+		<string>gw-ai-pulse</string>
+		<key>TZ</key>
+		<string>Asia/Shanghai</string>
+		<key>PATH</key>
+		<string>/usr/bin:/bin:/usr/sbin:/sbin</string>
+	</dict>
+
+	<key>StartCalendarInterval</key>
+	<array>
+		<dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
+	</array>
+
+	<key>RunAtLoad</key>
+	<false/>
+
+	<key>StandardOutPath</key>
+	<string>/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/01-采集器/logs/launchd-weekly.out</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/01-采集器/logs/launchd-weekly.err</string>
+</dict>
+</plist>

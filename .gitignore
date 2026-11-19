@@ -1,0 +1,39 @@
+# gw-ai-pulse 版本库忽略规则（2026-11-19 建立基线时定）
+#
+# 原则：仓库里只放「人和代码」——能重建的东西、能泄露的东西都不进库。
+# 状态真源是 SQLite，但它不是代码：备份走 state/backups/，恢复演练见 docs。
+
+# ---- 本地环境 ----
+.venv/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+.DS_Store
+
+# ---- 密钥：只走 macOS 钥匙串（见 README「存密钥」）----
+# 任何 .env 一律不进库；需要示例就提交 .env.example
+.env
+**/.env
+**/*.env
+!**/*.env.example
+
+# ---- 运行状态库 ----
+01-采集器/state/*.sqlite
+01-采集器/state/*.sqlite-wal
+01-采集器/state/*.sqlite-shm
+01-采集器/state/*.sqlite.bak-*
+01-采集器/state/*.attempt-*
+01-采集器/state/run.lock
+01-采集器/state/backups/
+
+# ---- 日志与试运行产物 ----
+01-采集器/logs/
+logs/
+
+# ---- 打包产物（由 work/theme19 构建，可重打）----
+dist/*.zip
+dist/*.sha256
+
+# ---- 迁移快照与旧归档（体积大、非活代码）----
+_rebind-backup/
+_archive/

@@ -1,0 +1,1092 @@
+sources:
+- id: openai-news
+  name: OpenAI / Codex
+  module: ext_ai
+  kind: rss
+  tier: official
+  default_domain: 选型
+  questions: &id001
+  - Q03
+  url: https://openai.com/news/rss.xml
+  enabled: true
+  verified: false
+- id: openai-codex
+  name: OpenAI / Codex
+  module: ext_ai
+  kind: github_release
+  tier: official
+  default_domain: 工具做法
+  questions: &id002
+  - Q04
+  repo: openai/codex
+  enabled: true
+  verified: false
+- id: anthropic-news
+  name: Anthropic / Claude
+  module: ext_ai
+  kind: page
+  tier: official
+  default_domain: 选型
+  questions: *id001
+  url: https://www.anthropic.com/news
+  enabled: true
+  verified: false
+- id: claude-code
+  name: Anthropic / Claude
+  module: ext_ai
+  kind: github_release
+  tier: official
+  default_domain: 工具做法
+  questions: *id002
+  repo: anthropics/claude-code
+  enabled: true
+  verified: false
+- id: deepmind-blog
+  name: Google DeepMind / Gemini
+  module: ext_ai
+  kind: rss
+  tier: official
+  default_domain: 选型
+  questions: *id001
+  url: https://deepmind.google/blog/rss.xml
+  enabled: true
+  verified: false
+- id: google-ai-blog
+  name: Google DeepMind / Gemini
+  module: ext_ai
+  kind: rss
+  tier: official
+  default_domain: 选型
+  questions: *id001
+  url: https://blog.google/technology/ai/rss/
+  enabled: true
+  verified: false
+- id: gemini-cli
+  name: Google DeepMind / Gemini
+  module: ext_ai
+  kind: github_release
+  tier: official
+  default_domain: 工具做法
+  questions: *id002
+  repo: google-gemini/gemini-cli
+  enabled: true
+  verified: false
+- id: meta-ai-blog
+  name: Meta AI / Llama
+  module: ext_ai
+  kind: page
+  tier: official
+  default_domain: 选型
+  questions: *id001
+  url: https://ai.meta.com/blog/
+  enabled: true
+  verified: false
+- id: microsoft-ai
+  name: Microsoft AI
+  module: ext_ai
+  kind: page
+  tier: official
+  default_domain: 选型
+  questions:
+  - Q03
+  url: https://news.microsoft.com/source/topics/ai/
+  enabled: true
+  verified: false
+  note: 2026-10-30 验证：blogs.microsoft.com/ai 已跳转至此；页面无可读日期，暂按 page 处理
+- id: xai-news
+  name: xAI
+  module: ext_ai
+  kind: page
+  tier: official
+  default_domain: 选型
+  questions: *id001
+  url: https://x.ai/news
+  enabled: true
+  verified: false
+- id: deepseek-api-news
+  name: DeepSeek
+  module: ext_ai
+  kind: page
+  tier: official
+  default_domain: 选型
+  questions: *id001
+  url: https://api-docs.deepseek.com/news/news
+  enabled: false
+  verified: false
+  status: url_dead_2026-11-02
+  note: api-docs.deepseek.com/news/news 返回 Page Not Found；站点首页可读但无新闻入口，须在生产机确认现行更新日志地址后回写
+- id: qwen-blog
+  name: Alibaba / Qwen
+  module: ext_ai
+  kind: page
+  tier: official
+  default_domain: 选型
+  questions: *id001
+  url: https://qwen.ai/research
+  enabled: true
+  verified: false
+  note: 2026-10-30 验证：qwenlm.github.io 已停更并提示迁移；新站为前端渲染，WebFetch 不可直读，需浏览器打开
+- id: doubao
+  name: ByteDance / 豆包
+  module: ext_ai
+  kind: page
+  tier: official
+  default_domain: 选型
+  questions: *id001
+  url: https://seed.bytedance.com/zh/blog
+  enabled: true
+  verified: false
+  note: 2026-10-30 验证：前端渲染不可直读，需浏览器打开
+- id: zhipu
+  name: 智谱
+  module: ext_ai
+  kind: page
+  tier: official
+  default_domain: 选型
+  questions: *id001
+  url: https://docs.bigmodel.cn/cn/update/new-releases
+  enabled: true
+  verified: false
+- id: moonshot
+  name: 月之暗面
+  module: ext_ai
+  kind: page
+  tier: official
+  default_domain: 选型
+  questions: *id001
+  url: https://platform.kimi.com/blog
+  enabled: true
+  verified: false
+  note: 2026-10-30 验证：platform.moonshot.cn/blog 302 跳转至此
+- id: minimax
+  name: MiniMax
+  module: ext_ai
+  kind: page
+  tier: official
+  default_domain: 选型
+  questions: *id001
+  url: https://www.minimax.cn/news
+  enabled: true
+  verified: false
+  note: 2026-10-30 验证：minimaxi.com/news 302 跳转至此
+- id: baidu-ernie
+  name: 百度
+  module: ext_ai
+  kind: page
+  tier: official
+  default_domain: 选型
+  questions: *id001
+  url: https://yiyan.baidu.com/blog/
+  enabled: true
+  verified: false
+  note: 2026-10-30 验证：博客最新为 2025-12，疑似停更，建议改用文心官方公告页
+- id: tencent-hunyuan
+  name: 腾讯混元
+  module: ext_ai
+  kind: page
+  tier: official
+  default_domain: 选型
+  questions: *id001
+  url: https://hunyuan.tencent.com/
+  enabled: true
+  verified: false
+  note: 2026-10-30 验证：前端渲染不可直读，需浏览器打开
+- id: mcp-spec
+  name: MCP 生态
+  module: ext_ai
+  kind: github_release
+  tier: official
+  default_domain: 工具做法
+  questions:
+  - Q04
+  repo: modelcontextprotocol/modelcontextprotocol
+  enabled: true
+  verified: false
+- id: hf-blog
+  name: Hugging Face
+  module: ext_ai
+  kind: rss
+  tier: official
+  default_domain: 选型
+  questions:
+  - Q03
+  url: https://huggingface.co/blog/feed.xml
+  enabled: true
+  verified: false
+- id: hn-front
+  name: Hacker News
+  module: ext_ai
+  kind: hn_top
+  tier: community
+  default_domain: 行业动态
+  questions:
+  - Q04
+  keywords: default
+  min_heat: 80
+  url: https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=60
+  enabled: true
+  verified: false
+- id: arxiv-ai
+  name: arXiv cs.AI / cs.CL
+  module: ext_ai
+  kind: atom
+  tier: research
+  default_domain: 前沿研究
+  questions:
+  - Q01
+  - Q04
+  url: http://export.arxiv.org/api/query?search_query=cat:cs.AI+OR+cat:cs.CL&sortBy=submittedDate&sortOrder=descending&max_results=60
+  enabled: true
+  verified: false
+- id: github-trending
+  name: GitHub Trending
+  module: ext_ai
+  kind: github_trending
+  tier: community
+  default_domain: 工具做法
+  questions:
+  - Q04
+  keywords: default
+  url: https://github.com/trending?since=daily
+  enabled: true
+  verified: false
+- id: hf-trending
+  name: Hugging Face 热门模型
+  module: models
+  kind: hf_trending
+  tier: community
+  default_domain: 选型
+  questions:
+  - Q03
+  schedule: daily
+  url: https://huggingface.co/api/models?sort=trendingScore&direction=-1&limit=20
+  enabled: true
+  verified: false
+- name: 量子位
+  module: ext_ai
+  kind: rss
+  url: https://www.qbitai.com/feed
+  tier: media
+  default_domain: 行业动态
+  questions:
+  - Q03
+  - Q04
+  verified: false
+# gw-ai-pulse（2026-11-17）：停用。RSS 源本身已损坏——连续 14 轮返回
+# "not well-formed (invalid token): line 7, column 82"，last_ok 恒为 None，
+# 即从头到尾没有成功解析过一次。不是网络问题（同轮其他 ext_ai 源正常），
+# 是 jiqizhixin.com 的 feed 输出不合 XML 规范。用户决定直接剔除该源。
+# 若要恢复：先确认 https://www.jiqizhixin.com/rss 能被 xmllint 解析，再把下面改回 true。
+- name: 机器之心
+  module: ext_ai
+  kind: rss
+  url: https://www.jiqizhixin.com/rss
+  enabled: false
+  tier: media
+  default_domain: 行业动态
+  questions:
+  - Q03
+  - Q04
+  verified: false
+- name: IT之家 · AI
+  module: ext_ai
+  kind: rss
+  url: https://www.ithome.com/rss/
+  tier: media
+  default_domain: 行业动态
+  questions:
+  - Q03
+  - Q04
+  keywords:
+  - 大模型
+  - 智能体
+  - 人工智能
+  - AI
+  - Agent
+  verified: false
+  note: ithome.com 已确认公司网络可访问
+- name: 国家能源局
+  module: energy_policy
+  kind: listpage
+  url: https://www.nea.gov.cn/
+  tier: authority
+  default_domain: 政策合规
+  questions:
+  - Q02
+  - Q06
+  include_keywords:
+  - 人工智能
+  - 智能化
+  - 大模型
+  - 算力
+  - 数字化
+  selectors:
+    item: li
+    link: a
+    date: span
+  enabled: true
+  verified: true
+  note: listpage 实测可抓，条数少（1-7 条/轮）但为一手政策源，保持启用
+- name: 国家发展改革委
+  module: energy_policy
+  kind: listpage
+  url: https://www.ndrc.gov.cn/xwdt/
+  tier: authority
+  default_domain: 政策合规
+  questions:
+  - Q02
+  - Q05
+  - Q06
+  include_keywords:
+  - 人工智能
+  - 算力
+  - 数据
+  - 智能
+  selectors:
+    item: li
+    link: a
+    date: span
+  enabled: true
+  verified: true
+  note: listpage 实测可抓，条数少（1-7 条/轮）但为一手政策源，保持启用
+- name: 工业和信息化部
+  module: energy_policy
+  kind: listpage
+  url: https://www.miit.gov.cn/
+  tier: authority
+  default_domain: 政策合规
+  questions:
+  - Q05
+  - Q06
+  include_keywords:
+  - 人工智能
+  - 算力
+  - 大模型
+  - 智能体
+  selectors:
+    item: li
+    link: a
+    date: span
+  enabled: true
+  verified: true
+  note: listpage 实测可抓，条数少（1-7 条/轮）但为一手政策源，保持启用
+- name: 国家网信办
+  module: energy_policy
+  kind: listpage
+  url: https://www.cac.gov.cn/
+  tier: authority
+  default_domain: 政策合规
+  questions:
+  - Q06
+  include_keywords:
+  - 人工智能
+  - 生成式
+  - 算法
+  - 备案
+  - 标识
+  selectors:
+    item: li
+    link: a
+    date: span
+  enabled: true
+  verified: true
+  note: listpage 实测可抓，条数少（1-7 条/轮）但为一手政策源，保持启用
+- name: 北极星风力发电网
+  module: wind_peers
+  kind: listpage
+  url: https://news.bjx.com.cn/fd/
+  tier: media
+  default_domain: 能源AI
+  questions:
+  - Q01
+  - Q09
+  include_keywords:
+  - 智能
+  - AI
+  - 人工智能
+  - 大模型
+  - 数字化
+  - 算法
+  - 预测
+  - 巡检
+  selectors:
+    item: li
+    link: a
+    date: span
+  enabled: false
+  verified: false
+  note: 地址待核实
+- name: 维斯塔斯
+  module: wind_peers
+  kind: listpage
+  url: https://www.vestas.com/en/media/company-news
+  tier: official
+  default_domain: 能源AI
+  questions:
+  - Q01
+  include_keywords:
+  - AI
+  - artificial intelligence
+  - digital
+  - machine learning
+  - data
+  selectors:
+    item: article
+    link: a
+  enabled: false
+  verified: false
+  note: 地址待核实
+- name: 西门子歌美飒
+  module: wind_peers
+  kind: listpage
+  url: https://www.siemensgamesa.com/global/en/home/press-releases.html
+  tier: official
+  default_domain: 能源AI
+  questions:
+  - Q01
+  include_keywords:
+  - AI
+  - artificial intelligence
+  - digital
+  - machine learning
+  selectors:
+    item: article
+    link: a
+  enabled: false
+  verified: false
+  note: 地址待核实
+- name: BleepingComputer
+  module: security
+  kind: rss
+  url: https://www.bleepingcomputer.com/feed/
+  tier: media
+  default_domain: 安全
+  questions:
+  - Q07
+  keywords:
+  - ai
+  - llm
+  - agent
+  - mcp
+  - chatgpt
+  - copilot
+  - prompt injection
+  - openai
+  - claude
+  - gemini
+  verified: false
+  note: RSS 全部返回 403（反爬），已由 Dark Reading / Krebs / Infosecurity 覆盖
+  enabled: false
+- name: The Register · 安全
+  module: security
+  kind: atom
+  url: https://www.theregister.com/security/headlines.atom
+  tier: media
+  default_domain: 安全
+  questions:
+  - Q07
+  keywords:
+  - ai
+  - llm
+  - agent
+  - mcp
+  - chatgpt
+  - copilot
+  - prompt injection
+  verified: false
+  note: Atom 解析失败且无可用替代 feed（全部 200 但 0 item），已由其他安全源覆盖
+  enabled: false
+- name: IT之家 · 算力
+  module: compute
+  kind: rss
+  url: https://www.ithome.com/rss/
+  tier: media
+  default_domain: 算力
+  questions:
+  - Q05
+  - Q09
+  keywords:
+  - 算力
+  - 芯片
+  - GPU
+  - 英伟达
+  - 昇腾
+  - 出口管制
+  - 数据中心
+  - 智算
+  verified: false
+- name: 集团 AI 社区 · AI工具与办公
+  module: internal
+  kind: discourse
+  category_id: 7
+  url: https://aicopilot.goldwind.com.cn:3211/c/7
+  tier: official
+  default_domain: 集团内部
+  questions:
+  - Q08
+  enabled: false
+  verified: true
+- name: 集团 AI 社区 · 金风实践
+  module: internal
+  kind: discourse
+  category_id: 16
+  url: https://aicopilot.goldwind.com.cn:3211/c/16
+  tier: official
+  default_domain: 集团内部
+  questions:
+  - Q08
+  enabled: false
+  verified: true
+- name: GWEC 全球风能理事会
+  module: energy_policy
+  kind: rss
+  url: https://www.gwec.net/news/rss.xml
+  tier: authority
+  default_domain: 能源AI
+  questions:
+  - Q01
+  - Q02
+  enabled: true
+  verified: true
+- name: WindEurope 欧洲风能协会
+  module: energy_policy
+  kind: rss
+  url: https://windeurope.org/feed/
+  tier: authority
+  default_domain: 能源AI
+  questions:
+  - Q01
+  - Q02
+  enabled: true
+  verified: true
+- name: BNEF 彭博新能源财经
+  module: energy_policy
+  kind: rss
+  url: https://about.bnef.com/feed/
+  tier: authority
+  default_domain: 能源AI
+  questions:
+  - Q01
+  - Q09
+  enabled: true
+  verified: true
+- name: OffshoreWind.biz 海上风电
+  module: energy_policy
+  kind: rss
+  url: https://www.offshorewind.biz/feed/
+  tier: media
+  default_domain: 能源AI
+  questions:
+  - Q01
+  - Q02
+  enabled: true
+  verified: true
+- name: Windpower Monthly
+  module: wind_peers
+  kind: rss
+  url: https://www.windpowermonthly.com/rss
+  tier: media
+  default_domain: 能源AI
+  questions:
+  - Q01
+  - Q02
+  enabled: true
+  verified: true
+  keywords: &id003
+  - digital twin
+  - condition monitoring
+  - digital solutions
+  - service optimization
+  - SCADA
+  - predictive maintenance
+  - 智能运维
+  - 数字化
+  - 数字孪生
+  - 大兆瓦
+  - 海上风电
+  - floating wind
+  - 订单
+  - 中标
+  - 财报
+  - 营收
+  - Vestas
+  - Siemens Gamesa
+  - GE Vernova
+  - Nordex
+  - Enercon
+  - Suzlon
+  - Mingyang
+  - Envision
+  - Goldwind
+- name: Electrek 新能源
+  module: energy_policy
+  kind: rss
+  url: https://electrek.co/feed/
+  tier: media
+  default_domain: 能源AI
+  questions:
+  - Q01
+  enabled: true
+  verified: true
+- name: PV-Tech 光伏
+  module: energy_policy
+  kind: rss
+  url: https://www.pv-tech.org/feed/
+  tier: media
+  default_domain: 能源AI
+  questions:
+  - Q01
+  enabled: true
+  verified: true
+- name: Krebs on Security
+  module: security
+  kind: rss
+  url: https://krebsonsecurity.com/feed/
+  tier: authority
+  default_domain: 安全
+  questions:
+  - Q07
+  enabled: true
+  verified: true
+- name: Dark Reading
+  module: security
+  kind: rss
+  url: https://www.darkreading.com/rss.xml
+  tier: media
+  default_domain: 安全
+  questions:
+  - Q07
+  enabled: true
+  verified: true
+- name: CISA 美国网络安全局
+  module: security
+  kind: rss
+  url: https://www.cisa.gov/news.xml
+  tier: authority
+  default_domain: 安全
+  questions:
+  - Q07
+  enabled: false
+  verified: false
+  note: RSS 直连 403（需换 UA 或走 API），已由其他安全源覆盖
+- name: Schneier on Security
+  module: security
+  kind: atom
+  url: https://www.schneier.com/feed/atom/
+  tier: authority
+  default_domain: 安全
+  questions:
+  - Q07
+  enabled: true
+  verified: true
+- name: The Hacker News 安全
+  module: security
+  kind: listpage
+  url: https://thehackernews.com/
+  tier: media
+  default_domain: 安全
+  questions:
+  - Q07
+  enabled: true
+  verified: true
+  selectors:
+    item: div.pop-article
+    link: a
+- name: GE Vernova
+  module: wind_peers
+  kind: rss
+  url: https://www.gevernova.com/news/subscribe/all/rss.xml
+  tier: official
+  default_domain: 能源AI
+  questions:
+  - Q01
+  - Q02
+  enabled: true
+  verified: true
+- name: Nordex 恩德
+  module: wind_peers
+  kind: rss
+  url: https://www.nordex-online.com/en/feed/
+  tier: official
+  default_domain: 能源AI
+  questions:
+  - Q01
+  - Q02
+  enabled: true
+  verified: true
+- name: Enercon 爱纳康
+  module: wind_peers
+  kind: page
+  url: https://www.enercon.de/en/news/
+  tier: official
+  default_domain: 能源AI
+  questions:
+  - Q01
+  - Q02
+  enabled: false
+  verified: false
+  note: 页面 404，且站点已改版（enercon.de/en/news 不存在）
+- name: Siemens Energy 西门子能源
+  module: wind_peers
+  kind: page
+  url: https://www.siemens-energy.com/global/en/news.html
+  tier: official
+  default_domain: 能源AI
+  questions:
+  - Q01
+  - Q02
+  enabled: false
+  verified: false
+  note: 页面为 JS 渲染，静态抓取只得到导航菜单（86 条无效标题）
+- name: 金风科技（自监测）
+  module: wind_peers
+  kind: page
+  url: https://www.goldwind.com/cn/news/
+  tier: official
+  default_domain: 集团内部
+  questions:
+  - Q08
+  enabled: false
+  verified: false
+  note: 抓到的 5 条是产品解决方案菜单，非新闻；金风自身新闻走集团内部渠道
+- name: 明阳智能
+  module: wind_peers
+  kind: page
+  url: http://www.mywind.com.cn/
+  tier: official
+  default_domain: 能源AI
+  questions:
+  - Q01
+  - Q02
+  enabled: false
+  verified: false
+  note: 中文站点无静态可抓列表（SPA 渲染）
+- name: 远景能源
+  module: wind_peers
+  kind: page
+  url: https://www.envision-group.com/cn/news/
+  tier: official
+  default_domain: 能源AI
+  questions:
+  - Q01
+  - Q02
+  enabled: false
+  verified: false
+  note: 中文站点 SPA 渲染，静态抓取 0 条
+- name: 三一重能
+  module: wind_peers
+  kind: page
+  url: https://www.sanygroup.com/news/
+  tier: official
+  default_domain: 能源AI
+  questions:
+  - Q01
+  - Q02
+  enabled: false
+  verified: false
+  note: 抓到的 8 条是产品分类菜单，非新闻列表
+- name: 电气风电
+  module: wind_peers
+  kind: page
+  url: https://www.sewpg.com/
+  tier: official
+  default_domain: 能源AI
+  questions:
+  - Q01
+  - Q02
+  enabled: false
+  verified: false
+  note: 站点无新闻列表结构，静态抓取 0 条
+- name: 东方电气
+  module: wind_peers
+  kind: listpage
+  url: https://www.dongfang.com/
+  tier: official
+  default_domain: 能源AI
+  questions:
+  - Q01
+  - Q02
+  enabled: true
+  verified: true
+  selectors:
+    item: li
+    link: a
+  keywords:
+  - 风电
+  - 风能
+  - 风力
+  - 海上风电
+  - 机组
+  - 叶片
+  - 大兆瓦
+  - 新能源
+  max_items: 15
+  note: 站内新闻以党建/会议为主，仅保留风电相关条目；实测常为空属正常
+- name: Recharge 可再生能源
+  module: wind_peers
+  kind: page
+  url: https://www.rechargenews.com/
+  tier: media
+  default_domain: 能源AI
+  questions:
+  - Q01
+  - Q02
+  enabled: false
+  verified: false
+  note: 付费墙站点，静态抓取 0 条（RSS 亦 404）
+- name: 4C Offshore 海风
+  module: wind_peers
+  kind: page
+  url: https://www.4coffshore.com/news/
+  tier: media
+  default_domain: 能源AI
+  questions:
+  - Q01
+  enabled: false
+  verified: false
+  note: 静态抓取 0 条（导航结构为主），禁用
+- name: reNews 风电
+  module: wind_peers
+  kind: rss
+  url: https://renews.biz/feed/
+  tier: media
+  default_domain: 能源AI
+  questions:
+  - Q01
+  - Q02
+  keywords: *id003
+  enabled: true
+  verified: true
+- name: Offshore Energy 海上能源
+  module: wind_peers
+  kind: rss
+  url: https://www.offshore-energy.biz/feed/
+  tier: media
+  default_domain: 能源AI
+  questions:
+  - Q01
+  - Q02
+  keywords: *id003
+  enabled: false
+  verified: false
+  note: 实测竞对关键词命中 0/51 条，内容偏海事油气，不适合作竞对监测
+- name: Vestas 维斯塔斯（原站）
+  module: wind_peers
+  kind: page
+  url: https://www.vestas.com/en/media/company-news
+  tier: official
+  default_domain: 能源AI
+  questions:
+  - Q01
+  - Q02
+  enabled: false
+  verified: false
+  note: SPA 渲染，静态抓取只得导航；竞对动态改由 Windpower Monthly / reNews 覆盖
+- name: Siemens Gamesa（原站）
+  module: wind_peers
+  kind: page
+  url: https://www.siemensgamesa.com/global/en/home/press-releases.html
+  tier: official
+  default_domain: 能源AI
+  questions:
+  - Q01
+  - Q02
+  enabled: false
+  verified: false
+  note: 站点重构，所有 newsroom 地址 302 到首页；竞对动态改由行业媒体覆盖
+- name: 明阳智能（原站）
+  module: wind_peers
+  kind: page
+  url: http://www.mywind.com.cn/
+  tier: official
+  default_domain: 能源AI
+  questions:
+  - Q01
+  - Q02
+  enabled: false
+  verified: false
+  note: SPA 渲染，静态抓取 0 条
+- name: 远景能源（原站）
+  module: wind_peers
+  kind: page
+  url: https://www.envision-group.com/cn/news/
+  tier: official
+  default_domain: 能源AI
+  questions:
+  - Q01
+  - Q02
+  enabled: false
+  verified: false
+  note: SPA 渲染，静态抓取 0 条
+- name: Infosecurity Magazine
+  module: security
+  kind: rss
+  url: https://www.infosecurity-magazine.com/rss/news/
+  tier: media
+  default_domain: 安全
+  questions:
+  - Q07
+  enabled: true
+  verified: true
+- name: 中国电力报
+  module: energy_policy
+  kind: listpage
+  url: https://www.cpnn.com.cn/
+  tier: media
+  default_domain: 政策合规
+  questions:
+  - Q01
+  - Q02
+  selectors:
+    item: li
+    link: a
+  keywords: &id004
+  - 风电
+  - 风能
+  - 风力
+  - 海上风电
+  - 光伏
+  - 新能源
+  - 储能
+  - 电网
+  - 电力
+  - 能源局
+  - 人工智能
+  - 大模型
+  - 智能体
+  - 算力
+  - 数字化
+  - 智能化
+  - 氢能
+  - 核电
+  - 煤炭智能化
+  max_items: 20
+  enabled: true
+  verified: true
+  note: 站内含大量时政新闻，用 keywords 只留能源/AI 相关
+  exclude_keywords: &id005
+  - (600
+  - (601
+  - (000
+  - (002
+  - (300
+  - (688
+  - 股价
+  - 涨停
+  - 跌停
+  - 收盘
+  - 开盘
+  - 行情
+  min_title_chars: 12
+- name: 新华网 · 能源频道
+  module: energy_policy
+  kind: listpage
+  url: http://www.news.cn/energy/
+  tier: authority
+  default_domain: 政策合规
+  questions:
+  - Q01
+  - Q02
+  selectors:
+    item: div.tit
+    link: a
+  keywords: *id004
+  max_items: 20
+  enabled: true
+  verified: true
+  note: 含政策发文原文，keywords 过滤后保留能源政策
+  exclude_keywords: *id005
+  min_title_chars: 12
+- name: 中国能源网
+  module: energy_policy
+  kind: listpage
+  url: https://www.china5e.com/
+  tier: media
+  default_domain: 政策合规
+  questions:
+  - Q01
+  - Q02
+  selectors:
+    item: li.singleline
+    link: a
+  keywords: *id004
+  max_items: 20
+  enabled: true
+  verified: true
+  note: 含财经行情，keywords 过滤后只留能源相关
+  exclude_keywords: *id005
+  min_title_chars: 12
+
+# gw-ai-pulse（2026-11-16）：补齐日报停用后暴露的 4 个缺口源。
+# 这 4 个以前在日报 skill 的清单里，但没有能被采集器直接抓的形态，一直缺着。
+
+- name: DeepSeek 官方更新日志
+  module: models
+  kind: changelog
+  url: https://api-docs.deepseek.com/zh-cn/updates
+  tier: official
+  default_domain: 选型
+  questions: [Q03, Q04]
+  selectors:
+    item: .theme-doc-markdown
+    date_heading: h2
+  max_items: 15
+  enabled: true
+  verified: true
+  note: 官网无 RSS；更新日志页结构稳定（h2 日期 + h3 发布标题），按标题逐条成候选。实测 25 条可解析。
+
+- name: DSH 主仓库
+  module: models
+  kind: github_repo
+  repo: deepseek-ai/deepseek-harness
+  tier: official
+  default_domain: 工具做法
+  questions: [Q04]
+  enabled: true
+  verified: true
+  note: github.com 网页在本机 curl 超时，只能用 api.github.com。pushed_at 落在窗口内才会上首页。
+
+- name: DSH 插件生态
+  module: ext_ai
+  kind: github_topic
+  topic: dsh-plugin
+  tier: community
+  default_domain: 工具做法
+  questions: [Q04]
+  max_items: 10
+  enabled: true
+  verified: true
+  note: 按 topic 搜最近更新的仓库，看生态里在做什么。实测 2026-11-16 有 3 个仓库当天更新。
+
+# Vestas / SGRE：两家新闻列表都由 JS 渲染，静态 HTML 里 0 条（实测）。
+# sitemap 是唯一静态可得的清单，但各有缺陷：
+#   Vestas  sitemap 有 lastmod，但更新滞后（实测最新只到 2026-02，而列表页已到 11 月）
+#   SGRE    sitemap 有 391 条 press-release，但整站没有 lastmod，只能靠 URL 日期戳
+# 两者都需要同样一层：上游一更新、sitemap 紧跟，就能采到；滞后时采不到也不会误报新。
+# 因此默认 enabled: false——先不产出不可信的时间，等确认 sitemap 会跟随更新再打开。
+- name: Vestas 维斯塔斯（sitemap）
+  module: wind_peers
+  kind: sitemap
+  url: https://www.vestas.com/sitemap.xml
+  url_pattern: /en/media/company-news/20\d\d/
+  url_pattern_note: 只取公司新闻，不取产品页
+  tier: official
+  default_domain: 能源AI
+  questions: [Q01, Q05]
+  max_items: 25
+  enabled: false
+  verified: true
+  note: 列表页 JS 渲染抓不到；sitemap 有 lastmod 但滞后（实测最新 2026-02）。等确认更新及时再开。
+
+- name: Siemens Gamesa（sitemap）
+  module: wind_peers
+  kind: sitemap
+  url: https://www.siemensgamesa.com/sitemap.xml
+  url_pattern: press-release
+  tier: official
+  default_domain: 能源AI
+  questions: [Q01, Q05]
+  max_items: 25
+  enabled: false
+  verified: true
+  note: 391 条新闻页可解析，但整站无 lastmod，只能靠 URL 日期戳判断新鲜度。等核实再开。

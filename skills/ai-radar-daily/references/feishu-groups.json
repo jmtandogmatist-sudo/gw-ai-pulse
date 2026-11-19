@@ -1,0 +1,22 @@
+{
+  "groups": [
+    {
+      "name": "AI智能体开发平台运营群",
+      "chat_id": "oc_d613cd95638e14c145bba6c87a7123ad",
+      "mention_all": false,
+      "enabled": true
+    },
+    {
+      "name": "KNS统一数据平台",
+      "chat_id": "oc_52da4aa933ef08de47ec321717039e6b",
+      "mention_all": false,
+      "enabled": true
+    },
+    {
+      "name": "本地大模型用户交流群",
+      "chat_id": "oc_0fb9a0a98ee33b0419f1fce967f9c17b",
+      "mention_all": false,
+      "enabled": true
+    }
+  ]
+}

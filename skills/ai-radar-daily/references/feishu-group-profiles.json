@@ -1,0 +1,235 @@
+{
+  "version": "1.2",
+  "description": "AI 雷达日报飞书群差异化画像：脚本按群生成『一主讯息＋两快讯＋一问题＋阅读全文＋统一签名档』的差异化群推送文案。",
+  "portrait_source": {
+    "calibrated_at": "2026-10-27T14:59:00+08:00",
+    "run_id": "20261027-145900",
+    "message_window": "2026-07-29~2026-10-27（90 天）",
+    "read_window": "2026-10-20~2026-10-27（7 天）",
+    "sources": [
+      "三群群画像快照 group-portrait-report.json（单快照门禁）",
+      "副总级人员三群触达分析（375 人名单，372 人账号已匹配）"
+    ],
+    "gate_fields": [
+      "angle_label（必须唯一）",
+      "question",
+      "headline_keywords"
+    ],
+    "note": "profile / headline_subject / main_focus / angle_hint / portrait 为画像描述字段，随只读画像快照校准；angle_label、question、headline_keywords 是差异化推送门禁字段，必须保持唯一且非空（缺一即 precheck BLOCK、prepare exit 2）。",
+    "merge_note": "2026-11-02 v1.2：以本地 v1.1（含群画像快照 portrait）为底，并入技能 v5.1.0 补充的门禁关键词（智能体群 +扩展/插件/后门/安全/供应链；KNS 群 +电力/数据共享/数据基础设施/大模型；本地模型群 +千问/Qwen/苹果/手机），并按 v5.2.0 技能包重装后回写。"
+  },
+  "groups": {
+    "oc_d613cd95638e14c145bba6c87a7123ad": {
+      "label": "A 智能体",
+      "emoji": "📡",
+      "profile": "技术＋职能为主的平台运营群；典型『低互动·高潜读』知识型受众，靠精准价值点单向触达；关注知识库/工作流/智能体模板是否可复用",
+      "headline_subject": "行业知识可封装成智能体",
+      "main_focus": "复用能力",
+      "angle_label": "能力复用",
+      "require_headline_match": true,
+      "headline_keywords": [
+        "智能体",
+        "Agent",
+        "工作流",
+        "工具",
+        "模型",
+        "机器人",
+        "世界模型",
+        "DeepSeek",
+        "OpenAI",
+        "编码",
+        "自动化",
+        "知识库",
+        "模板",
+        "MCP",
+        "LangGraph",
+        "扩展",
+        "插件",
+        "后门",
+        "安全",
+        "供应链"
+      ],
+      "question": "你最希望平台优先提供哪类行业智能体模板？（设备巡检/经营分析/文档处理/客服问答）",
+      "angle_hint": "每条重点点出『哪类能力已可做成智能体/工具在平台复用』",
+      "portrait": {
+        "members": 1137,
+        "active_senders_90d": 32,
+        "active_rate_pct": 2.8,
+        "zero_speak_pct": 97.2,
+        "tiers": {
+          "核心": 8,
+          "活跃": 2,
+          "潜水": 22,
+          "零发言": 1105
+        },
+        "member_share_pct": 50.8,
+        "top_departments": [
+          "集团总部职能 14",
+          "金风慧能 4",
+          "风电产业集团 3"
+        ],
+        "content_counts": {
+          "AI日报": 34,
+          "业务案例": 1,
+          "科普小课堂": 2,
+          "培训/活动": 9
+        },
+        "exec_members": 27,
+        "exec_read_rate_pct": 65.2,
+        "group_read_rate_pct": 62.6,
+        "note": "97% 成员 90 天零发言；AI 日报为绝对主体内容；在群副总级以上 27 人已读率 65.2%，高于全群大盘 2.6pp——内容有效，瓶颈是私域讨论少。"
+      }
+    },
+    "oc_52da4aa933ef08de47ec321717039e6b": {
+      "label": "B KNS",
+      "emoji": "📊",
+      "profile": "业务·财务·职能为主的三群最大群；『触达型』而非『讨论型』，成员几乎不发言；在群高管的已读率显著高于大盘，是经营/数据决策人群的高价值触点",
+      "headline_subject": "数据统一 → 进入业务决策",
+      "main_focus": "数据价值",
+      "angle_label": "数据价值",
+      "require_headline_match": true,
+      "headline_keywords": [
+        "数据",
+        "预测",
+        "分析",
+        "决策",
+        "经营",
+        "财务",
+        "供应链",
+        "客户",
+        "销售",
+        "机会",
+        "管线",
+        "CRM",
+        "电网",
+        "调度",
+        "告警",
+        "复电",
+        "绿电",
+        "算电",
+        "交易",
+        "资本开支",
+        "收费",
+        "Token",
+        "词元",
+        "调用量",
+        "算力成本",
+        "电价",
+        "电力",
+        "数据共享",
+        "数据基础设施",
+        "大模型"
+      ],
+      "question": "目前你最希望KNS支撑哪类分析或预测场景？（月度经营分析/供应链预测/财务报表/项目复盘）",
+      "angle_hint": "每条重点点出『数据如何变成可用的预测/决策能力』",
+      "portrait": {
+        "members": 1695,
+        "active_senders_90d": 19,
+        "active_rate_pct": 1.1,
+        "zero_speak_pct": 98.9,
+        "tiers": {
+          "核心": 3,
+          "活跃": 8,
+          "潜水": 8,
+          "零发言": 1676
+        },
+        "member_share_pct": 47.3,
+        "top_departments": [
+          "集团总部职能 12",
+          "风电产业集团 2",
+          "天润新能 1",
+          "金风国际 1"
+        ],
+        "content_counts": {
+          "AI日报": 27,
+          "业务案例": 1,
+          "科普小课堂": 1,
+          "培训/活动": 9
+        },
+        "exec_members": 24,
+        "exec_read_rate_pct": 68.3,
+        "group_read_rate_pct": 56.0,
+        "note": "三群最大（1695 人）但互动最低（活跃发送者 1.1%）；在群副总级以上 24 人已读率 68.3%，高出大盘 12.3pp（三群最大差值）——高管对该群内容需求被低估。"
+      }
+    },
+    "oc_0fb9a0a98ee33b0419f1fce967f9c17b": {
+      "label": "C 本地模型",
+      "emoji": "🧠",
+      "profile": "研发·产品·技术为主；三群中唯一天然高互动社区，成员自发发言占主体；关注端侧部署门槛与行业模型架构，适合抛可讨论的话题",
+      "headline_subject": "端侧部署 vs 行业模型架构",
+      "main_focus": "本地部署信号",
+      "angle_label": "部署门槛",
+      "require_headline_match": true,
+      "headline_keywords": [
+        "端侧",
+        "本地",
+        "部署",
+        "芯片",
+        "处理器",
+        "算力",
+        "参数",
+        "推理",
+        "成本",
+        "模型",
+        "开源",
+        "DeepSeek",
+        "NPU",
+        "Agent",
+        "SWE",
+        "千问",
+        "Qwen",
+        "苹果",
+        "手机"
+      ],
+      "question": "下期想看哪个：端侧模型部署，还是行业模型架构？",
+      "angle_hint": "每条重点点出『端侧门槛/模型架构/算力供应链』",
+      "portrait": {
+        "members": 1276,
+        "active_senders_90d": 91,
+        "active_rate_pct": 7.1,
+        "zero_speak_pct": 92.9,
+        "tiers": {
+          "核心": 8,
+          "活跃": 29,
+          "潜水": 54,
+          "零发言": 1185
+        },
+        "member_share_pct": 78.4,
+        "top_departments": [
+          "集团总部职能 19",
+          "金风慧能 13",
+          "风电产业集团 13"
+        ],
+        "content_counts": {
+          "AI日报": 34,
+          "业务案例": 1,
+          "科普小课堂": 2,
+          "培训/活动": 9
+        },
+        "exec_members": 18,
+        "exec_read_rate_pct": 65.6,
+        "group_read_rate_pct": 61.8,
+        "note": "活跃发送者 91 人（7.1%），为另两群的 2.5~6.5 倍；成员自发发言占 78.4%，是唯一具备社区讨论氛围的群；零发言比例三群最低（92.9%）。"
+      }
+    }
+  },
+  "signature": {
+    "block": "————————————————\n**出品｜集团数字化中心**\n**策划整理｜AI应用研究院**\n我们跟踪 AI 前沿、沉淀金风业务实践、帮业务部门把 AI 用起来\n**欢迎投稿**：欢迎分享发布科普内容或者你的心得与技巧到 AI 社区，我们一起交流、探讨！\n📚 [往期合集](https://aicopilot.goldwind.com.cn:3211/latest)",
+    "style": "full（完整版：出品方＋研究院＋投稿＋合集＋互动）"
+  },
+  "push_format": {
+    "structure": "一主讯息＋两快讯＋一问题＋阅读全文＋统一签名档",
+    "title_prefix": "【AI雷达｜M.D】",
+    "title_prefix_accumulated": "【AI雷达｜M.D·累积出刊】",
+    "max_chars_main": 130,
+    "max_chars_news_flash": 30,
+    "no_full_report_in_group": true,
+    "comment": "群消息只发『与群相关』的价值点，完整日报交给阅读全文链接，不把整份日报塞进群里。",
+    "accumulation": {
+      "enabled": true,
+      "note_line": "📅 本期为 <span> 累积出刊（共 <n> 条），非单日快报",
+      "source": "检索清单 AI雷达日报_YYYY-MM-DD_检索清单.json 的 publication_metadata（V3.9.0 起为唯一权威来源：{\"is_accumulated\",\"span\",\"count\"}）；正文已不再承载累积行，历史期次由正文遗留行兜底读取",
+      "comment": "非工作日不发布、候选逐日累积，到工作日统一出刊（30 为上限）；累积出刊时推送文案必须显式标注累积期，避免把多日累积说成「今日/昨日」，口径失实。"
+    }
+  }
+}

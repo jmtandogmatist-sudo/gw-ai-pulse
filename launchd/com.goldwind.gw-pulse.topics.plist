@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.goldwind.gw-pulse.topics</string>
+
+	<!-- 首页 05「主题追踪」：每周五 17:00 更新判断。
+	     定在 17:00 是因为当天 16:00 那轮采集刚跑完，判断吃得到最新的本周信号；
+	     提前跑会漏掉周五下午采集到的东西。 -->
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/.venv/bin/python</string>
+		<string>-m</string>
+		<string>collector</string>
+		<string>topics</string>
+	</array>
+
+	<key>WorkingDirectory</key>
+	<string>/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/01-采集器</string>
+
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>AIR_KEYCHAIN_SERVICE</key>
+		<string>gw-ai-pulse</string>
+		<key>TZ</key>
+		<string>Asia/Shanghai</string>
+		<key>PATH</key>
+		<string>/usr/bin:/bin:/usr/sbin:/sbin</string>
+	</dict>
+
+	<key>StartCalendarInterval</key>
+	<array>
+		<dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>17</integer><key>Minute</key><integer>0</integer></dict>
+	</array>
+
+	<key>RunAtLoad</key>
+	<false/>
+
+	<key>StandardOutPath</key>
+	<string>/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/01-采集器/logs/launchd-topics.out</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/01-采集器/logs/launchd-topics.err</string>
+</dict>
+</plist>

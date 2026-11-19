@@ -1,0 +1,128 @@
+{
+  "version": "5.3.3",
+  "timezone": "Asia/Shanghai",
+  "schedule": {
+    "rrule": "FREQ=DAILY;BYHOUR=8;BYMINUTE=30",
+    "trigger_local": "08:30",
+    "timezone": "Asia/Shanghai",
+    "note": "V5.3.0：检索通道触发排程的**声明镜像**。真源是 WorkBuddy 自动化配置 automation-1787192486737 本身；本块由 run.py precheck 每次运行打印，使排程漂移在运行日志里可见。2026-09-08 原为 10:00，后（不晚于 2026-10-10）改为 08:30；含周末——检索每天照常，仅工作日发布。改排程须同步三处文档：SKILL.md §5 / references/retrieval-strategy.md §1 / scripts/self_check.py 的 allowed_event_dates docstring。"
+  },
+  "work_dir": "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily",
+  "forum": {
+    "base_url": "https://aicopilot.goldwind.com.cn:3211",
+    "category_id": 15,
+    "tags": [
+      "ai",
+      "资讯"
+    ]
+  },
+  "homepage_feed": {
+    "enabled": true,
+    "topic_id": 632,
+    "post_id": null,
+    "post_number": 1,
+    "update_time": "09:30",
+    "note": "5.2.0：论坛首页「AI 雷达」数据底座帖（https://aicopilot.goldwind.com.cn:3211/t/ai/632）。run.py feed 从已发布正文生成 air-pulse/1 JSON；--confirm 后更新该帖第 1 楼。post_id 留空时运行时按话题回读。update_time 用于首页显示“下一轮更新”。 5.3.0：写入前与底座帖现有内容合并，采集器（radar 等）、主题档案（topics）、技术雷达（stance）的字段保留不动。"
+  },
+  "signal_library": {
+    "enabled": true,
+    "category_id": 20,
+    "read_interval_seconds": 0.2,
+    "note": "gw-ai-pulse P2（2026-11-13）：启用信号库——阶段 2 改跑 signal_pool.py 读论坛「信号」分类（id=20），采集器写入的信号直接进日报候选。读不到时仍 exit 3 回退 fetch_sources.py 兜底。注意：signal_pool 只读分类列表接口，不走 /raw，不依赖前端链路。"
+  },
+  "accretion_publish": {
+    "enabled": true,
+    "pool_file": "{work_dir}/candidates-pool.json",
+    "max_batch_size": 30,
+    "pool_max_age_days": 45,
+    "missed_retrieval_recovery": {
+      "enabled": true,
+      "scan_source": "candidates-pool.batches[].report_date",
+      "scan_range": "last_successful_batch_date+1..report_date-1",
+      "missing_status": "MISSED_RETRIEVAL",
+      "unrecovered_block_status": "MISSED_RETRIEVAL_UNRECOVERED",
+      "metadata_fields": [
+        "is_accumulated",
+        "span",
+        "count",
+        "recovery_reason",
+        "missed_dates"
+      ],
+      "note": "V3.9.3：恢复运行时先扫描缺失检索日期；若电脑关机/断网/调度未触发导致候选池缺批次，必须逐日补检并 accumulate 入池后才能发布。脚本级 recover-missed 未落地前，由执行 Agent 手工扫描与补检。"
+    },
+    "rule": "检索恒定执行；仅工作日/调休补班日发布；非工作时候选留池累积；恢复运行时先扫描并补齐 candidates-pool 缺失日期；到工作日按重要度取前30（不足全量）。候选全集记录落飞书知识库「候选全集 Candidates」表（正文不再挂全资讯链接，V3.9.0）；累积期与缺跑恢复标识写检索清单 publication_metadata"
+  },
+  "precheck": {
+    "enabled": true,
+    "note": "V3.9.0 只读环境预检：搜索前检查二维码 6 码（V3.8.7 起由 5 码扩为 6 码）、飞书群配置与画像、知识库 Base/schema、服务可达性、凭据键位；只读不写盘、不泄露凭据、不阻断检索",
+    "qr_dir": "{work_dir}",
+    "qr_files": [
+      "群二维码_本地大模型.png",
+      "群二维码_Dify平台.png",
+      "群二维码_金风科技.png",
+      "群二维码_KNS.png",
+      "群二维码_标准化助手.png",
+      "群二维码_风衍大模型.jpeg"
+    ],
+    "required_env_keys": [
+      "DISCOURSE_API_KEY",
+      "DISCOURSE_API_USERNAME"
+    ],
+    "exit_codes": {
+      "pass": 0,
+      "warn": 1,
+      "block": 2
+    }
+  },
+  "publish_sequence": {
+    "note": "V3.9.0 外部可见动作顺序固定：论坛发布 → 本地构包(package) → 飞书推送(push) → 远端知识库同步(sync-knowledge)。知识库同步必须晚于飞书三群全部 SENT",
+    "stage7": "package（仅本地构包 + 校验，不触远端）",
+    "stage8": "sync-knowledge（远端五表 + 候选表，前置：所有飞书群 SENT）"
+  },
+  "paths": {
+    "skill_dir": "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily",
+    "references_dir": "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/references",
+    "scripts_dir": "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/scripts",
+    "env_file": "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/.env",
+    "run_state": "{work_dir}/{issue_id}/run-state.json",
+    "judgment_ledger": "{work_dir}/判断台账.json",
+    "feishu_state": "{work_dir}/feishu-push-state.json",
+    "feishu_groups": "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/references/feishu-groups.json",
+    "feishu_group_profiles": "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/references/feishu-group-profiles.json",
+    "feishu_push_profile": "cli_aa942f2aba38dccd",
+    "feishu_push_identity": "user"
+  },
+  "knowledge_sync": {
+    "enabled": false,
+    "target_wiki_url": "https://qdv30zar2p.feishu.cn/wiki/TQG2wg2C3iCjiDkMsQicNvYvnob",
+    "profile": "cli_aa10a94c6db99d01",
+    "identity": "bot",
+    "base_token": "Hhx5bvXBda6RH1sCVxacRfirn6c",
+    "table_ids": {
+      "issues": "tblCVho4dkYcgejK",
+      "events": "tblWHIjc3tUHtrxe",
+      "sources": "tblnyekmLbuJGbnl",
+      "judgments": "tbli1Cu6zjj9l63o",
+      "runs": "tblGbjhU2QXtAxR2",
+      "candidates": "tbl4RS4qEuDf2B0E"
+    },
+    "local_package_dir": "{work_dir}/{issue_id}/knowledge-package",
+    "unconfigured_status": "SYNC_PENDING",
+    "blocked_reason": "",
+    "note": "gw-ai-pulse（2026-11-13）：知识库降级为「离线归档」，不参与 run 主链路。本地 package（stage 7）照常构建；需要归档时再手动跑 sync-knowledge（前置不再要求飞书推送 SENT）。"
+  },
+  "feishu_push": {
+    "enabled": false,
+    "note": "gw-ai-pulse（2026-11-13）：新设计只发 AI 社区论坛，日报不再推生产飞书群。关闭后阶段 5 直接 SKIPPED、阶段 8 不再校验飞书状态，主链路（检索→成稿→门禁→发布→首页）不依赖飞书；precheck 的二维码/群配置/群画像降为 warn。代码保留，置 true 即恢复旧行为（也可用环境变量 AI_RADAR_FEISHU_PUSH=1 临时开启）。"
+  },
+  "_gw_pulse": {
+    "root": "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse",
+    "created": "2026-11-13",
+    "changes_vs_legacy": [
+      "work_dir/paths 全部指向 gw-ai-pulse（rebind_paths.py verify 通过）",
+      "节假日数据内嵌 skills/ai-radar-daily/assets/calendar-cn（不再读 ~/.workbuddy/skills/calendar-cn）",
+      "feishu_push.enabled=false：阶段 5 SKIPPED、阶段 8 去飞书门禁、precheck 降级为 warn",
+      "knowledge_sync.enabled=false：退化为离线归档"
+    ]
+  }
+}

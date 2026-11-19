@@ -1,0 +1,576 @@
+# ============================================================================
+# 检索词库 V2.0（草稿 · 待审查）
+# 2026-11-19  gw-ai-pulse
+#
+# 状态：**尚未接入代码**。采集器目前只读 config/queries.yaml。
+#       本文件在 docs/2026-11-19-检索词库V2.0-设计与迁移.md §8 的决策确认后，
+#       才会被 collector/queries.py 读取（届时 queries.yaml 保留为 v1 回滚基线）。
+#
+# 设计原则（2026-11-19 定）：
+#   1. 只用免费、免 key 的后端（Bing News RSS / Google News RSS / HN / arXiv）。
+#   2. 每轮全量执行，不做 T0/T1/T2 跳轮；priority 只用于统计与额度。
+#   3. 每条 query 只承担一个检索意图，不再把主题+企业+技术堆在一条里。
+#   4. 中英文分开配置：中文只投 bing/gnews，英文只投 bing/hn/arxiv。
+# ============================================================================
+version: 2.0.0
+updated: "2026-11-19"
+
+round_policy:
+  every_round: true          # 全量每轮（默认决策）
+  # 若将来要分层：把 priority 改成 T0/T1/T2 并实现跳轮逻辑；当前实现不使用
+  layers: [all]
+
+# ---------------------------------------------------------------------------
+# 后端：全部免费、免 key。实测见 docs/2026-11-19-检索词库V2.0-设计与迁移.md §4.1
+# ---------------------------------------------------------------------------
+backends:
+  bing:
+    kind: bing_news
+    enabled: true
+    module: ext_ai
+    tier: media                 # 逐条按 publisher_tiers 覆盖
+    endpoint: https://www.bing.com/news/search
+    params: {format: rss, sortby: date, count: 30}
+    supports_lang: [en, zh]
+    min_interval_seconds: 0.5
+    note: link 里的 url= 参数解码即真实原文；description 是正文导语
+  gnews:
+    kind: gnews
+    enabled: true
+    module: ext_ai
+    tier: media
+    endpoint: https://news.google.com/rss/search
+    params: {hl: zh-CN, gl: CN, ceid: "CN:zh-Hans"}
+    supports_lang: [zh]
+    min_interval_seconds: 2.5   # 实测：间隔 <2s 会 429
+    note: 链接是 news.google.com 跳转，无法回溯原文；入库时标记"线索"
+  hn:
+    kind: hn_search
+    enabled: true
+    module: ext_ai
+    tier: community
+    endpoint: https://hn.algolia.com/api/v1/search
+    params: {tags: story, hitsPerPage: 20}
+    supports_lang: [en]         # 中文 query 实测 0 命中
+  arxiv:
+    kind: arxiv_search
+    enabled: false              # 默认关；只给 research 类词手动开
+    module: ext_ai
+    tier: research
+    endpoint: http://export.arxiv.org/api/query
+    supports_lang: [en]
+    min_interval_seconds: 3
+
+# Bing/Google 返回的媒体名 → tier 映射。未命中的一律按 media 处理。
+publisher_tiers:
+  新华社: authority
+  新华网: authority
+  人民网: authority
+  人民日报: authority
+  中国政府网: authority
+  国家能源局: authority
+  国家发展改革委: authority
+  工业和信息化部: authority
+  国家网信办: authority
+  央视新闻: authority
+  中国电力报: media
+  中国能源报: media
+  世纪新能源网: media
+  北极星: media
+  财新: media
+  第一财经: media
+  界面新闻: media
+  21世纪经济报道: media
+  新浪财经: media
+  36氪: media
+  雷峰网: media
+  钛媒体: media
+  InfoQ: media
+  量子位: media
+  机器之心: media
+  IT之家: media
+  Reuters: authority
+  Bloomberg: authority
+
+queries:
+  # ======================= A. 全球 AI 产业动态 =======================
+  - id: industry-model-release
+    topic: industry
+    subtopic: model_release
+    intent: product
+    priority: T0
+    questions: [Q03, Q04]
+    backends: [bing, gnews, hn]
+    max_results: 20
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "AI model release announcement"}
+      - {lang: en, text: "large language model version update"}
+      - {lang: zh, text: "大模型 发布"}
+    paired_sources: ["OpenAI / Codex", "Anthropic / Claude", "Google DeepMind / Gemini"]
+
+  - id: industry-corp-strategy
+    topic: industry
+    subtopic: corp_strategy
+    intent: company
+    priority: T1
+    questions: [Q03, Q08]
+    backends: [bing, gnews]
+    max_results: 15
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "AI company partnership announcement"}
+      - {lang: zh, text: "人工智能 战略合作"}
+    paired_sources: []
+
+  - id: industry-market
+    topic: industry
+    subtopic: market_trend
+    intent: theme
+    priority: T2
+    questions: [Q09]
+    backends: [bing, gnews]
+    max_results: 15
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "AI industry report market growth"}
+      - {lang: zh, text: "人工智能 产业 报告"}
+    paired_sources: []
+
+  # ======================= B. 大模型与技术突破 =======================
+  - id: models-training
+    topic: models
+    subtopic: training_efficiency
+    intent: research
+    priority: T1
+    questions: [Q03]
+    backends: [bing, hn, arxiv, gnews]
+    max_results: 20
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "LLM training efficiency method"}
+      - {lang: en, text: "large model inference optimization"}
+      - {lang: zh, text: "大模型 训练 推理 优化"}
+    paired_sources: ["Hugging Face", "arXiv cs.AI / cs.CL"]
+
+  - id: models-multimodal
+    topic: models
+    subtopic: multimodal
+    intent: research
+    priority: T1
+    questions: [Q03]
+    backends: [bing, hn, gnews]
+    max_results: 20
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "multimodal model vision audio"}
+      - {lang: en, text: "video generation model"}
+      - {lang: zh, text: "多模态 大模型"}
+    paired_sources: ["Google DeepMind / Gemini"]
+
+  - id: models-open-weights
+    topic: models
+    subtopic: open_weights
+    intent: product
+    priority: T1
+    questions: [Q03]
+    backends: [bing, hn, gnews]
+    max_results: 20
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "open source LLM weights release"}
+      - {lang: zh, text: "开源大模型 发布"}
+    paired_sources: ["Hugging Face", "Alibaba / Qwen", "DeepSeek 官方更新日志"]
+
+  # ======================= C. Agent 与 AI 工程化 =======================
+  - id: agent-arch
+    topic: agent
+    subtopic: architecture
+    intent: research
+    priority: T1
+    questions: [Q04]
+    backends: [bing, hn, gnews]
+    max_results: 20
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "agent orchestration framework"}
+      - {lang: en, text: "multi-agent architecture design"}
+      - {lang: zh, text: "智能体 编排 框架"}
+    paired_sources: []
+
+  - id: agent-runtime
+    topic: agent
+    subtopic: runtime
+    intent: product
+    priority: T1
+    questions: [Q04]
+    backends: [bing, hn, gnews]
+    max_results: 20
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "agent runtime sandbox execution"}
+      - {lang: en, text: "agent harness open source"}
+      - {lang: zh, text: "智能体 运行时 沙箱"}
+    paired_sources: []
+
+  - id: agent-sdk
+    topic: agent
+    subtopic: sdk
+    intent: product
+    priority: T1
+    questions: [Q04]
+    backends: [bing, hn, gnews]
+    max_results: 20
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "agent SDK developer tools"}
+      - {lang: en, text: "OpenAI Codex release notes"}
+      - {lang: en, text: "Claude Agent SDK update"}
+      - {lang: zh, text: "智能体 开发 SDK"}
+    paired_sources: ["OpenAI / Codex", "Anthropic / Claude", "Google DeepMind / Gemini"]
+
+  - id: agent-mcp
+    topic: agent
+    subtopic: mcp
+    intent: product
+    priority: T1
+    questions: [Q04, Q07]
+    backends: [bing, hn, gnews]
+    max_results: 20
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "Model Context Protocol server"}
+      - {lang: en, text: "MCP tool calling registry"}
+      - {lang: zh, text: "MCP 协议 工具调用"}
+    paired_sources: ["MCP 生态"]
+
+  - id: agent-eval
+    topic: agent
+    subtopic: production_eval
+    intent: research
+    priority: T2
+    questions: [Q04]
+    backends: [bing, hn, arxiv, gnews]
+    max_results: 15
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "agent evaluation observability"}
+      - {lang: en, text: "agent production deployment lessons"}
+      - {lang: zh, text: "智能体 评测 可观测"}
+    paired_sources: []
+
+  - id: agent-security
+    topic: agent
+    subtopic: security
+    intent: research
+    priority: T2
+    questions: [Q07]
+    backends: [bing, hn, gnews]
+    max_results: 15
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "agent guardrails prompt injection"}
+      - {lang: en, text: "agent permission sandbox escape"}
+      - {lang: zh, text: "智能体 安全 提示词注入"}
+    paired_sources: []
+
+  # ======================= D. 企业 AI 应用落地 =======================
+  - id: ent-workflow
+    topic: enterprise
+    subtopic: workflow_automation
+    intent: scenario
+    priority: T1
+    questions: [Q04, Q08]
+    backends: [bing, gnews]
+    max_results: 20
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "enterprise AI workflow automation case"}
+      - {lang: zh, text: "企业 AI 流程自动化 落地"}
+    paired_sources: []
+
+  - id: ent-manufacturing
+    topic: enterprise
+    subtopic: manufacturing
+    intent: scenario
+    priority: T1
+    questions: [Q01, Q08]
+    backends: [bing, gnews]
+    max_results: 20
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "AI quality inspection manufacturing"}
+      - {lang: en, text: "industrial large model application"}
+      - {lang: zh, text: "人工智能 制造业 质检"}
+      - {lang: zh, text: "工业大模型 应用"}
+    paired_sources: []
+
+  - id: ent-roi
+    topic: enterprise
+    subtopic: roi
+    intent: theme
+    priority: T2
+    questions: [Q08]
+    backends: [bing, gnews]
+    max_results: 15
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "enterprise AI ROI adoption survey"}
+      - {lang: zh, text: "企业 AI 投入产出"}
+    paired_sources: []
+
+  # ======================= E. AI 安全与治理 =======================
+  - id: sec-model
+    topic: security
+    subtopic: model_security
+    intent: research
+    priority: T1
+    questions: [Q07]
+    backends: [bing, hn, gnews]
+    max_results: 20
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "LLM jailbreak prompt injection"}
+      - {lang: en, text: "model vulnerability exploit LLM"}
+      - {lang: zh, text: "大模型 越狱 提示词注入"}
+    paired_sources: []
+
+  - id: sec-supplychain
+    topic: security
+    subtopic: supply_chain
+    intent: research
+    priority: T1
+    questions: [Q07]
+    backends: [bing, hn, gnews]
+    max_results: 15
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "AI supply chain vulnerability"}
+      - {lang: en, text: "open source model weights leak"}
+      - {lang: zh, text: "AI 供应链 漏洞"}
+    paired_sources: []
+
+  - id: sec-compliance
+    topic: security
+    subtopic: compliance
+    intent: theme
+    priority: T1
+    questions: [Q06]
+    backends: [bing, gnews]
+    max_results: 20
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "EU AI Act compliance requirement"}
+      - {lang: en, text: "AI regulation implementation guidance"}
+      - {lang: zh, text: "人工智能 合规 备案"}
+    paired_sources: ["国家网信办"]
+
+  # ======================= F. 算力与基础设施 =======================
+  - id: comp-chip
+    topic: compute
+    subtopic: chip_supply
+    intent: theme
+    priority: T1
+    questions: [Q05]
+    backends: [bing, hn, gnews]
+    max_results: 20
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "AI chip GPU supply shortage"}
+      - {lang: zh, text: "AI 芯片 GPU 供应"}
+    paired_sources: []
+
+  - id: comp-datacenter
+    topic: compute
+    subtopic: data_center_power
+    intent: scenario
+    priority: T1
+    questions: [Q09]
+    backends: [bing, gnews]
+    max_results: 20
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "data center power consumption AI"}
+      - {lang: zh, text: "智算中心 用电"}
+    paired_sources: []
+
+  - id: comp-cost
+    topic: compute
+    subtopic: inference_cost
+    intent: theme
+    priority: T2
+    questions: [Q05]
+    backends: [bing, hn, gnews]
+    max_results: 15
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "LLM inference cost per token"}
+      - {lang: zh, text: "大模型 推理 成本"}
+    paired_sources: []
+
+  # ======================= G. AI × 能源 × 风电 =======================
+  - id: wind-design
+    topic: wind
+    subtopic: design
+    intent: research
+    priority: T2
+    questions: [Q01]
+    backends: [bing, gnews]
+    max_results: 15
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "wind turbine design optimization AI"}
+      - {lang: zh, text: "风机 设计 优化 人工智能"}
+    paired_sources: []
+
+  - id: wind-manufacturing
+    topic: wind
+    subtopic: manufacturing
+    intent: scenario
+    priority: T1
+    questions: [Q01]
+    backends: [bing, gnews]
+    max_results: 20
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "wind blade inspection computer vision"}
+      - {lang: en, text: "wind turbine manufacturing AI quality"}
+      - {lang: zh, text: "风电叶片 缺陷检测"}
+      - {lang: zh, text: "风电装备 智能制造"}
+    paired_sources: ["东方电气"]
+
+  - id: wind-om
+    topic: wind
+    subtopic: operation_maintenance
+    intent: scenario
+    priority: T1
+    questions: [Q01]
+    backends: [bing, gnews]
+    max_results: 20
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "wind farm predictive maintenance AI"}
+      - {lang: en, text: "wind turbine SCADA anomaly detection"}
+      - {lang: zh, text: "风电场 预测性维护"}
+      - {lang: zh, text: "风机 故障诊断 机器学习"}
+    paired_sources: ["GE Vernova", "Nordex 恩德", "东方电气"]
+
+  - id: wind-forecast
+    topic: wind
+    subtopic: power_forecasting
+    intent: scenario
+    priority: T1
+    questions: [Q01, Q02]
+    backends: [bing, gnews]
+    max_results: 20
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "wind power forecasting machine learning"}
+      - {lang: en, text: "renewable energy forecasting AI grid"}
+      - {lang: zh, text: "风电功率预测 人工智能"}
+      - {lang: zh, text: "新能源 消纳 预测 人工智能"}
+    paired_sources: ["国家能源局"]
+
+  - id: wind-offshore
+    topic: wind
+    subtopic: offshore
+    intent: scenario
+    priority: T2
+    questions: [Q01, Q09]
+    backends: [bing, gnews]
+    max_results: 15
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "offshore wind operation maintenance AI"}
+      - {lang: zh, text: "海上风电 智能运维"}
+    paired_sources: ["GWEC 全球风能理事会", "WindEurope 欧洲风能协会"]
+
+  - id: wind-peer-events
+    topic: wind
+    subtopic: competitor_events
+    intent: company
+    priority: T1
+    questions: [Q01]
+    backends: [bing, gnews]
+    max_results: 20
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "Vestas digital service AI launch"}
+      - {lang: en, text: "Siemens Gamesa digital solution wind farm"}
+      - {lang: en, text: "GE Vernova wind software product"}
+      - {lang: zh, text: "维斯塔斯 数字化 智能运维"}
+      - {lang: zh, text: "明阳 远景 三一 智能化 风电"}
+    paired_sources: ["GE Vernova", "Nordex 恩德", "东方电气"]
+
+  # ======================= H. 政策、资本与竞争 =======================
+  - id: wind-policy
+    topic: wind
+    subtopic: energy_policy
+    intent: policy
+    priority: T0
+    questions: [Q02]
+    backends: [bing, gnews]
+    max_results: 20
+    time_window_hours: 72
+    queries:
+      - {lang: zh, text: "人工智能+ 能源 试点"}
+      - {lang: zh, text: "新型电力系统 试点 人工智能"}
+      - {lang: en, text: "China AI energy policy pilot"}
+    paired_sources: ["国家能源局", "国家发展改革委", "新华网 · 能源频道"]
+
+  - id: policy-cn
+    topic: policy
+    subtopic: domestic_ai_policy
+    intent: policy
+    priority: T0
+    questions: [Q06]
+    backends: [bing, gnews]
+    max_results: 20
+    time_window_hours: 72
+    queries:
+      - {lang: zh, text: "人工智能 管理办法 备案"}
+      - {lang: zh, text: "生成式人工智能 服务 监管"}
+      - {lang: en, text: "China AI regulation policy"}
+    paired_sources: ["国家网信办", "工业和信息化部"]
+
+  - id: policy-intl
+    topic: policy
+    subtopic: international_ai_policy
+    intent: policy
+    priority: T1
+    questions: [Q06]
+    backends: [bing, gnews]
+    max_results: 15
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "US EU AI regulation act"}
+      - {lang: zh, text: "AI 监管 法案 海外"}
+    paired_sources: []
+
+  - id: policy-capital
+    topic: policy
+    subtopic: capital
+    intent: theme
+    priority: T2
+    questions: [Q09]
+    backends: [bing, gnews]
+    max_results: 15
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "AI startup funding acquisition"}
+      - {lang: zh, text: "AI 融资 并购"}
+    paired_sources: []
+
+  - id: policy-export
+    topic: policy
+    subtopic: export_control
+    intent: policy
+    priority: T1
+    questions: [Q05]
+    backends: [bing, gnews]
+    max_results: 15
+    time_window_hours: 72
+    queries:
+      - {lang: en, text: "semiconductor export control AI chip"}
+      - {lang: zh, text: "芯片 出口管制"}
+    paired_sources: []

@@ -1,0 +1,51 @@
+{
+  "version": "1.0.0",
+  "note": "主题档案的主题白名单与论坛配置。tag 必须与采集器 config/tags.yaml 的 topics 一致：改这里之后运行 dossier.py whitelist，把输出贴进采集器的 tags.yaml。dossier_topic_id 由首次发布自动回填，不要手改。",
+  "forum": {
+    "signal_category_id": 20,
+    "dossier_category_id": 15,
+    "dossier_tags": [
+      "dossier"
+    ],
+    "feed_topic_id": 632
+  },
+  "work_dir": "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-topic-dossier",
+  "lookback_days": 7,
+  "timeline_days": 30,
+  "max_topics_on_home": 5,
+  "topics": [
+    {
+      "name": "功率预测 AI",
+      "tag": "topic-power-forecast",
+      "questions": [
+        "Q01",
+        "Q02"
+      ],
+      "on_home": true
+    },
+    {
+      "name": "国产大模型选型",
+      "tag": "topic-domestic-llm",
+      "questions": [
+        "Q03"
+      ],
+      "on_home": true
+    },
+    {
+      "name": "智能体与 MCP 安全",
+      "tag": "topic-agent-security",
+      "questions": [
+        "Q07"
+      ],
+      "on_home": true
+    },
+    {
+      "name": "集团 AI 能力上新",
+      "tag": "topic-internal",
+      "questions": [
+        "Q08"
+      ],
+      "on_home": true
+    }
+  ]
+}

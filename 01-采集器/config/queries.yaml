@@ -1,0 +1,176 @@
+# 检索词库（A/B 层）—— 单一真源
+#
+# 2026-11-16 gw-ai-pulse：把原本只写在 references/retrieval-strategy.md 散文里的 A/B 层检索词
+# 落成结构化配置，供采集器与执行 Agent 共同读取。
+#
+# 2026-11-16 二次修订（中文检索词问题）：
+#   实测 HN Algolia 对中文检索词返回 0 条（「大模型 发布 更新 开源」→ 0，
+#   「人工智能+ 能源 试点 应用 案例」→ 0），此前 zh/en 双发等于白跑一半请求。
+#   现在改为：**检索只用英文词**（query_en），中文只作释义标签（label_zh），
+#   用于结果回显与人工判读；命中条目由 tagger 的 summary 给出中文摘要。
+#
+# 消费方：
+#   1. 采集器 collector/queries.py —— 用 search_engines 做真实关键词检索
+#   2. 执行 Agent —— 按 layer 逐条执行，结果写进 _检索清单.json 的 manual_pages / candidates
+#
+# 字段说明：
+#   id          稳定标识，改词不改 id（检索清单与历史报告引用它）
+#   label_zh    中文释义，**不用于检索**，仅用于展示与判读
+#   query_en    实际发送给检索后端的英文检索词（可多条）
+#   layer       A=通用主题，B=Agent 基础设施专项
+#   questions   关联的集团问题编号（Q01-Q09），供打标与分流参考
+#   paired_sources 配套的 C 层官方源 id（发现靠检索、核实靠官方源）
+#   note        判读口径，执行 Agent 必须遵守
+
+version: "1.1.0"
+updated: "2026-11-16"
+
+# 检索后端。采集器已实测可达的：
+#   - hn_algolia: Hacker News Algolia API（无 key，稳定，英文检索效果好）
+#   - arxiv_api:  arXiv 查询接口（无 key，但 429 限流频繁，默认关闭）
+# 未接入（实测/评估后决定）：
+#   - 通用 Web 搜索：需要外部 API key 或浏览器渲染，暂不纳入自动链路
+search_engines:
+  - id: hn_algolia
+    enabled: true
+    kind: hn_search
+    endpoint: https://hn.algolia.com/api/v1/search
+    module: ext_ai
+    tier: community
+    hits_per_page: 20
+    note: "按 query 搜 HN，用 points 做热度。只发英文词——中文词实测 0 条命中。"
+
+  - id: arxiv_api
+    enabled: false
+    kind: arxiv_search
+    endpoint: http://export.arxiv.org/api/query
+    module: ext_ai
+    tier: research
+    interval_seconds: 3
+    note: "实测可用但极不稳定：429 限流频繁、单次响应常超 20s。默认关闭，避免拖慢每轮采集；需要时手动置 enabled=true。arXiv 订阅源 arxiv-ai 已覆盖日常发现。"
+
+# 动态词：{month_en} 在运行时替换为英文月份（如 November），不硬编码
+months_placeholder: "{month_en}"
+
+queries:
+  # ============ A 层：通用主题 ============
+  - id: a-ai-daily
+    layer: A
+    label_zh: "国内外 AI 动态"
+    query_en: ["AI news today {month_en}", "AI artificial intelligence news"]
+    questions: [Q04, Q05]
+
+  - id: a-llm-release
+    layer: A
+    label_zh: "大模型版本发布"
+    query_en: ["LLM release update open source", "large language model new release"]
+    questions: [Q03]
+
+  - id: a-enterprise-app
+    layer: A
+    label_zh: "企业 AI 应用落地"
+    query_en: ["enterprise AI deployment", "AI adoption case study enterprise"]
+    questions: [Q08]
+
+  - id: a-industry-trend
+    layer: A
+    label_zh: "行业趋势与融资"
+    query_en: ["AI industry trend funding", "AI startup funding round"]
+    questions: [Q09]
+
+  - id: a-energy-wind
+    layer: A
+    label_zh: "AI 与风电能源"
+    query_en: ["AI wind energy power prediction", "machine learning wind turbine"]
+    questions: [Q01, Q02]
+
+  - id: a-energy-chain
+    layer: A
+    label_zh: "能源全产业链 AI（试点/电网/煤矿/发电）"
+    query_en: ["AI power grid dispatch load forecasting",
+               "AI energy pilot deployment",
+               "AI coal oil gas digitalization",
+               "power generation LLM agent"]
+    questions: [Q01, Q02]
+    paired_sources: [cpnn-news, xinhua-energy, china5e-news]
+    note: |
+      只扫标题层，命中 AI/大模型/智能体/算法/数字化/机器人 才展开正文。
+      能源侧线索普遍是「AI 落地案例」而非「模型发布」，按落地价值（谁在用、规模多大、指标多少）
+      判读，不要按技术新颖度打分。中文线索由 C 层官方/媒体源（中国电力报、新华网能源、中国能源网）
+      提供，本组英文检索只负责海外同类案例。
+
+  - id: a-wind-peers
+    layer: A
+    label_zh: "风电整机商数字化（竞对）"
+    query_en: ["Vestas digital twin", "Siemens Gamesa condition monitoring",
+               "GE Vernova AI software", "wind turbine predictive maintenance",
+               "Envision Energy AI", "Mingyang digitalization"]
+    questions: [Q01, Q02]
+    paired_sources: [vestas-news, siemensgamesa-news, gevernova-news]
+    note: |
+      竞品阵地不做 AI 字面硬过滤：整机厂的 AI 多以 digital solutions / service optimization /
+      condition monitoring / digital twin 题名出现，必须先按语义判读。
+      2026-11-11 实测 Vestas 新闻页 AI 关键词命中近零，长期无候选属正常，
+      不得为凑数放宽到非 AI 的公司新闻。
+
+  - id: a-energy-policy
+    layer: A
+    label_zh: "能源政策（国家级）"
+    query_en: ["China energy policy artificial intelligence", "China new power system policy"]
+    questions: [Q01, Q02]
+    paired_sources: [nea-news, nea-policy]
+    note: |
+      与 C 层 nea-news / nea-policy 配对：检索负责发现（海外与转载线索），
+      官方源负责核实（一手发文原文、适用范围、生效日期）。
+      只有媒体源、无法在 nea-news 找到对应发文的政策类候选，按 REJECTED_UNVERIFIED 处理。
+      中文政策原文一律走 C 层官方源，不用英文检索兜。
+
+  - id: a-safety
+    layer: A
+    label_zh: "AI 安全与治理"
+    query_en: ["AI safety alignment vulnerability", "LLM security jailbreak"]
+    questions: [Q07]
+
+  - id: a-funding
+    layer: A
+    label_zh: "投融资并购"
+    query_en: ["AI funding acquisition valuation", "AI startup M&A"]
+    questions: [Q09]
+
+  - id: a-compute
+    layer: A
+    label_zh: "算力与芯片"
+    query_en: ["AI chip GPU data center compute", "data center power consumption AI"]
+    questions: [Q06]
+
+  # ============ B 层：Agent 基础设施专项 ============
+  - id: b-agent-framework
+    layer: B
+    label_zh: "Agent 框架与运行时"
+    query_en: ["Agent Harness Runtime Framework SDK",
+               "App Server Protocol Sandbox open source"]
+    questions: [Q04]
+
+  - id: b-codex-claude-sdk
+    layer: B
+    label_zh: "Codex / Claude Agent SDK"
+    query_en: ["Codex Claude Agent SDK MCP", "coding agent harness runtime"]
+    questions: [Q04]
+
+  - id: b-mcp
+    layer: B
+    label_zh: "MCP 生态"
+    query_en: ["MCP Model Context Protocol server registry", "Model Context Protocol"]
+    questions: [Q07]
+
+  - id: b-coding-agent
+    layer: B
+    label_zh: "AI 编程工具"
+    query_en: ["AI coding agent IDE plugin", "AI CLI tool release"]
+    questions: [Q04, Q05]
+
+  - id: b-rag-memory
+    layer: B
+    label_zh: "RAG 与记忆"
+    query_en: ["RAG retrieval augmented generation", "memory context engineering framework"]
+    questions: [Q04]

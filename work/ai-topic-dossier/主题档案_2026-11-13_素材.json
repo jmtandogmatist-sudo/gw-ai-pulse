@@ -1,0 +1,51 @@
+{
+  "week_end": "2026-11-13",
+  "since": "2026-11-07",
+  "topics": [
+    {
+      "name": "功率预测 AI",
+      "tag": "topic-power-forecast",
+      "questions": [
+        "Q01",
+        "Q02"
+      ],
+      "week_signals": [],
+      "timeline": [],
+      "previous": null,
+      "history": []
+    },
+    {
+      "name": "国产大模型选型",
+      "tag": "topic-domestic-llm",
+      "questions": [
+        "Q03"
+      ],
+      "week_signals": [],
+      "timeline": [],
+      "previous": null,
+      "history": []
+    },
+    {
+      "name": "智能体与 MCP 安全",
+      "tag": "topic-agent-security",
+      "questions": [
+        "Q07"
+      ],
+      "week_signals": [],
+      "timeline": [],
+      "previous": null,
+      "history": []
+    },
+    {
+      "name": "集团 AI 能力上新",
+      "tag": "topic-internal",
+      "questions": [
+        "Q08"
+      ],
+      "week_signals": [],
+      "timeline": [],
+      "previous": null,
+      "history": []
+    }
+  ]
+}

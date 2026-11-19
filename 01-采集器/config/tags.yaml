@@ -1,0 +1,21 @@
+# 显示名 → 论坛标签。论坛标签只用小写英文和连字符，避免中文标签在不同设置下出问题。
+domains:
+  能源AI: energy-ai
+  政策合规: policy
+  选型: model-selection
+  工具做法: tools
+  算力: compute
+  安全: security
+  集团内部: internal
+  前沿研究: research
+  行业动态: industry
+
+# 主题标签白名单，由主题档案 skill 维护（T25）。先放 4 个起步主题。
+# 注意：论坛站点设置 max_tag_length=20，标签名不能超过 20 字符，否则 Discourse 会静默截断。
+# 「集团 AI 能力上新」原名 topic-internal-launch（21 字符）已被截断成 topic-internal-launc，
+# 2026-11-06 改用 topic-internal。
+topics:
+  功率预测 AI: topic-power-forecast
+  国产大模型选型: topic-domestic-llm
+  智能体与 MCP 安全: topic-agent-security
+  集团 AI 能力上新: topic-internal

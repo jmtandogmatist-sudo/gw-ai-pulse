@@ -138,6 +138,52 @@ def test_llm_chat_does_not_retry_real_errors(cfg, monkeypatch):
     assert len(seen) == 1
 
 
+def _cand(title):
+    from collector.models import Candidate
+    return Candidate(module="ext_ai", source_name="测试媒体", source_tier="media",
+                     url="https://example.com/" + str(hash(title)), title=title, excerpt="摘要片段")
+
+
+def test_tag_retries_batch_once_when_json_is_malformed(cfg):
+    """模型输出 JSON 少逗号时重试一次，别让整批 8 条进待人工（2026-11-19 实测 3.2% 损失）。"""
+    from collector.tagger import tag_candidates
+
+    class Flaky:
+        def __init__(self):
+            self.n = 0
+
+        def chat(self, system, user, timeout=None, max_tokens=None):
+            self.n += 1
+            if self.n == 1:
+                return '{"broken": [1, 2'          # 第 1 次：语法残缺
+            return '[{"idx":0,"keep":false},{"idx":1,"keep":false}]'
+
+    client = Flaky()
+    out = tag_candidates([_cand("标题一标题一标题一"), _cand("标题二标题二标题二")], cfg, client)
+    assert client.n == 2                            # 整批 1 次 + 重试 1 次
+    assert all(r.error is None for r in out)        # 不再记为「模型调用失败」
+    assert all(r.keep is False for r in out)
+
+
+def test_tag_gives_up_after_second_failure(cfg):
+    from collector.tagger import tag_candidates
+
+    class AlwaysBroken:
+        """一直返回坏 JSON：重试一次仍失败，才落成「模型调用失败」。"""
+
+        def __init__(self):
+            self.n = 0
+
+        def chat(self, system, user, timeout=None, max_tokens=None):
+            self.n += 1
+            return '{"broken": [1, 2'
+
+    client = AlwaysBroken()
+    out = tag_candidates([_cand("标题一标题一标题一")], cfg, client)
+    assert client.n == 2
+    assert out[0].keep is True and "模型调用失败" in (out[0].error or "")
+
+
 def test_parse_json_array_with_fence():
     assert parse_json_array('好的：\n```json\n[{"idx":0}]\n```') == [{"idx": 0}]
 

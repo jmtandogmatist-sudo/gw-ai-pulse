@@ -274,6 +274,18 @@ def tag_candidates(cands: list[Candidate], cfg: Config, client,
         batch = cands[i:i + size]
         try:
             by_idx = _tag_batch(batch, system, cfg, client)
+        except ValueError as e:
+            # 2026-11-19：只在「模型输出格式坏了」时整批重试一次。
+            # 实测这类失败与内容无关（JSON 少逗号 → "Expecting ',' delimiter"），
+            # 归因那一轮 247 条里因此进待人工 8 条（3.2%），重试一次基本必过。
+            # **网络/超时/鉴权类失败不重试**：模型整体挂掉时重试只会把一轮时间翻倍
+            # （tests/test_resilience.py::test_model_failure_is_counted_not_pending 守着这条）。
+            log.warning("模型输出格式坏了（%s），整批重试一次", e)
+            try:
+                by_idx = _tag_batch(batch, system, cfg, client)
+            except Exception as e2:  # noqa: BLE001
+                results.extend(TagResult(keep=True, error=f"模型调用失败：{e2}") for _ in batch)
+                continue
         except Exception as e:  # noqa: BLE001 —— 模型或网络异常只影响这一批
             results.extend(TagResult(keep=True, error=f"模型调用失败：{e}") for _ in batch)
             continue

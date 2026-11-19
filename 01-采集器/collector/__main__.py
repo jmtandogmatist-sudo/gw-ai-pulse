@@ -254,6 +254,14 @@ def cmd_check_config(args, cfg) -> int:
     # 被当成「运行时去读那个文件」。地址是本地写死的值，打在屏幕上比写在注释里可靠。
     llm = cfg.settings.get("llm") or {}
     print(f"模型接口 {llm.get('base_url')} · model={llm.get('model')} · 密钥走钥匙串 {llm.get('api_key_secret')}")
+    # 2026-11-19：前置过滤的状态必须在这里可见——它是「哪些行业源条目压根不会送模型」的开关，
+    # 藏在 settings 里不打印，出问题时没人想得到是它挡的。
+    pf = cfg.settings.get("prefilter") or {}
+    pf_mode = str(pf.get("mode") or "off")
+    if pf_mode != "off":
+        pf_src = [x["name"] for x in cfg.sources if x.get("module") in set(pf.get("modules") or [])]
+        print(f"前置过滤 {pf_mode}（作用于 {len(pf_src)} 个行业源、关键词 {len(pf.get('keywords') or [])} 个）"
+              + ("，只统计不拦截" if pf_mode == "shadow" else "，未命中即丢弃"))
     print("需要在论坛上建好的标签：")
     print("  " + " ".join(cfg.all_forum_tags()))
     return 1 if problems else 0
@@ -276,6 +284,10 @@ def cmd_status(args, cfg) -> int:
         # 2026-11-19 P1：白名单补判救回来的条数，用来判断这道闸是否真在起作用。
         if rep.get("keep_bypassed"):
             extra += f"白名单补判 {rep['keep_bypassed']} 条  "
+        # 2026-11-19：行业源关键词前置过滤（shadow 期间看「将挡多少 / 误伤多少」）
+        if rep.get("prefilter_would_drop"):
+            extra += (f"前置过滤({rep.get('prefilter_mode') or 'shadow'}) "
+                      f"将挡 {rep['prefilter_would_drop']}/误伤 {rep.get('prefilter_model_kept', 0)}  ")
         # 2026-11-19：今日焦点长文是否出稿、多长、事实几条
         if rep.get("focus_posted"):
             extra += (f"焦点 {rep.get('focus_chars', 0)} 字/{rep.get('focus_claims', 0)} 条事实"

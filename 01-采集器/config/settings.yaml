@@ -107,6 +107,50 @@ round:
 # 出问题就 enabled: false 一键回退到旧行为。
 # 名单里的每一个名字都必须是「真能抓到」的信源：check-config 会检查这一点
 # （config.coverage_warnings），抓不到的名字是空转的白名单，不是覆盖率。
+# 行业源关键词前置过滤（2026-11-19 漏斗归因后加）
+#
+# 证据：一轮 627 条候选里，行业媒体（风电/光伏/能源）贡献约 89 条，被模型
+# **100% 判为不值得**——Electrek 30/30、PV-Tech 26/26、OffshoreWind 17/17、reNews 8/8。
+# 它们不是坏源（GWEC、Windpower 偶尔能出「AI 做运维」这类硬货），只是绝大多数条目
+# 跟 AI 无关，白占抓取与判定预算。
+#
+# mode:
+#   shadow —— 只统计「本会挡掉多少、其中模型实际保留了几条」，不改行为（默认，先拿证据）
+#   live   —— 真挡：没命中关键词的条目在打标前就丢，省调用
+#   off    —— 关闭
+# 关键词命中标题或摘要即可；命中即放行（宁可多送几条给模型，也不要在这一层赌判断）。
+prefilter:
+  mode: shadow
+  modules:
+    - wind_peers          # 只作用于风电/能源行业媒体与同行；ext_ai、security、models 不适用
+  keywords:
+    - AI
+    - 人工智能
+    - 大模型
+    - 语言模型
+    - 机器学习
+    - 深度学习
+    - 神经网络
+    - 智能体
+    - 算法
+    - 算力
+    - 芯片
+    - 机器人
+    - 智能运维
+    - 数字孪生
+    - 数字化
+    - 智能化
+    - 自动化
+    - 预测
+    - 数据
+    - 模型
+    - 生成式
+    - copilot
+    - agent
+    - machine learning
+    - generative
+    - llm
+
 keep_bypass:
   enabled: true
   sources:

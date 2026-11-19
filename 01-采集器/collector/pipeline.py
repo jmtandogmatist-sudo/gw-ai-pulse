@@ -58,6 +58,12 @@ class RoundReport:
     # 而 screened_out 同时包含超窗口和被屏蔽域名，看不出闸门本身的分量。
     below_min_relevance: int = 0
     pending: int = 0
+    # 行业源关键词前置过滤（2026-11-19）：见 settings.prefilter。
+    # shadow 模式只统计不拦截；prefilter_model_kept 是「会挡掉、但模型其实保留了」的误伤数。
+    prefilter_mode: str = ""
+    prefilter_would_drop: int = 0
+    prefilter_model_kept: int = 0
+    prefilter_misses: list = field(default_factory=list)
     # 模型接口故障（超时 / 返回坏 JSON）导致这一批没能判定。
     # 单独计数、**不进 pending**：这些条目下一轮会被重新抓到并按正常流程判定，
     # 记进人工队列只会把队列灌满噪声（2026-11-19：65 条待人工里 48 条是这个原因）。
@@ -200,6 +206,31 @@ def run_round(cfg: Config, forum, llm, store, alerter, modules: list[str] | None
                  len(fresh), rep.duplicates, rep.screened_out, rep.undated_dropped,
                  time.monotonic() - mono)
 
+        # 3b. 行业源关键词前置过滤（2026-11-19 漏斗归因后加）
+        # 证据：行业媒体每轮约 89 条里模型保留 0 条，白占判定预算。
+        # shadow 只统计不拦截——把「本会挡掉的条目」记下来，等模型判完再看里面有没有
+        # 被保留的：影子模式自己就能证明会不会误伤，不必先上线再靠人工发现。
+        pf = cfg.settings.get("prefilter") or {}
+        pf_mode = str(pf.get("mode") or "off").lower()
+        pf_would: set[str] = set()
+        if pf_mode in ("shadow", "live") and fresh:
+            mod_of = {x["name"]: x.get("module", "") for x in cfg.sources}
+            mods = set(pf.get("modules") or [])
+            kws = [str(k).lower() for k in (pf.get("keywords") or [])]
+            if mods and kws:
+                def _hit_prefilter(c: Candidate) -> bool:
+                    blob = f"{c.title} {c.excerpt or ''}".lower()
+                    return any(k in blob for k in kws)
+                pf_would = {signal_id(c.url) for c in fresh
+                            if mod_of.get(c.source_name) in mods and not _hit_prefilter(c)}
+        rep.prefilter_mode = pf_mode if pf_mode in ("shadow", "live") else ""
+        rep.prefilter_would_drop = len(pf_would)
+        if pf_mode == "live" and pf_would:
+            before = len(fresh)
+            fresh = [c for c in fresh if signal_id(c.url) not in pf_would]
+            log.info("前置过滤(live)：挡掉 %d 条行业源条目（%d → %d 条送模型）",
+                     len(pf_would), before, len(fresh))
+
         # 4. 打标签与摘要
         results = tag_candidates(fresh, cfg, llm) if fresh else []
 
@@ -225,6 +256,17 @@ def run_round(cfg: Config, forum, llm, store, alerter, modules: list[str] | None
                         rep.keep_bypassed += 1
                 if rep.keep_bypassed:
                     log.info("白名单补判：%d 条被 keep=false 的一手来源重新保留", rep.keep_bypassed)
+        if pf_mode == "shadow" and pf_would and results:
+            kept_pf = [(c, r) for c, r in zip(fresh, results)
+                       if r.keep and not r.error and signal_id(c.url) in pf_would]
+            rep.prefilter_model_kept = len(kept_pf)
+            rep.prefilter_misses = [f"{c.source_name}：{c.title[:40]}" for c, _ in kept_pf[:5]]
+            log.info("前置过滤(影子)：本会挡掉 %d 条，其中模型保留了 %d 条",
+                     len(pf_would), len(kept_pf))
+            if kept_pf:
+                log.warning("前置过滤若生效会误伤 %d 条：%s", len(kept_pf),
+                            "；".join(rep.prefilter_misses))
+
         rep.llm_calls = getattr(llm, "calls", 0)
         if fresh and results and all(r.error and r.error.startswith("模型调用失败") for r in results):
             rep.fatal = "模型接口本轮全部调用失败：" + results[0].error

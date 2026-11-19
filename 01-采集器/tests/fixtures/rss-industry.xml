@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>风电行业媒体</title>
+<item><title>某整机厂推出风机叶片巡检大模型</title><link>https://wind.example.com/ai-om</link><description>覆盖故障诊断与备件预测。</description><pubDate>Wed, 04 Nov 2026 22:00:00 GMT</pubDate></item>
+<item><title>某风电集团公布三季度装机数据</title><link>https://wind.example.com/q3</link><description>新增装机 1.2GW。</description><pubDate>Wed, 04 Nov 2026 21:00:00 GMT</pubDate></item>
+<item><title>三个月前的旧闻</title><link>https://wind.example.com/old</link><description>旧。</description><pubDate>Mon, 03 Aug 2026 08:00:00 GMT</pubDate></item>
+</channel></rss>

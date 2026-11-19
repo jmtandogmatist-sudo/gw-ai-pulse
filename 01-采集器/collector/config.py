@@ -32,6 +32,11 @@ class Config:
         return {q["id"] for q in self.questions}
 
     @property
+    def signal_questions(self) -> list[dict]:
+        """下发给模型打标的问题。signal_level: false 的只在清单里供主题/词库引用，不参与打标。"""
+        return [q for q in self.questions if q.get("signal_level", True)]
+
+    @property
     def domains(self) -> list[str]:
         """领域显示名列表；tags.yaml 里 domains 是 {显示名: 论坛标签}。"""
         return list(self.tags["domains"])

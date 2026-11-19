@@ -129,7 +129,7 @@ class LLMClient:
 
 
 def build_system_prompt(cfg: Config, force_keep: bool = False) -> str:
-    qs = "\n".join(f"{q['id']} {q['text']}" for q in cfg.questions)
+    qs = "\n".join(f"{q['id']} {q['text']}" for q in cfg.signal_questions)
     base = SYSTEM_PROMPT.format(questions=qs, domains="、".join(cfg.domains),
                                 topics="、".join(cfg.topic_tags) or "（暂无）",
                                 min_title=cfg.settings["discourse"].get("min_title_chars", 15))

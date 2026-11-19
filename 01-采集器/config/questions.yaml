@@ -26,6 +26,12 @@ questions:
   - id: Q08
     short: 集团上新
     text: 集团内新上了什么 AI 能力、哪些在被真实使用、有没有重复建设？
+    # 2026-11-19 决定（公开口径 → 方案 2）：这个问题的答案只存在于内部社区，
+    # 而内部源不发布信号（分类 20 匿名可读，内部上新帖会公网可见，见 sources.yaml internal 段）。
+    # 因此 Q08 不再下发给模型打标（signal_level: false）——避免外部企业动态被硬蹭成「集团上新」，
+    # 也避免首页长期挂一个永远 0 的问题编号。
+    # 保留在清单里：topics.yaml / queries-v2.yaml / 主题档案 skill 都按 id 引用它，删了会连带失效。
+    signal_level: false
   - id: Q09
     short: AI用电机会
     text: AI 带来的用电需求和数据中心建设，给风电业务带来哪些机会？

@@ -357,3 +357,21 @@ def test_generic_key_still_rejected():
 
 def test_version_dots_still_normalized():
     assert normalize_event_key("baidu-ernie-5.5-flash") == "baidu-ernie-5-5-flash"
+
+
+def test_zh_chars_flags_english_titles():
+    """2026-11-20：中文标题合规监测（不做渲染时翻译，只报警）。
+
+    判据用「中文字符个数 ≥ 4」而不是占比：品牌名长的中文标题占比很低
+    （"DeepMind 发布 Gemini 4 Neon 模型" 只有 0.14），按占比会误报。
+    """
+    from collector.tagger import zh_chars, zh_ratio
+    assert zh_chars("DeepMind 发布 Gemini 4 Neon 模型") == 4
+    assert zh_chars("Season's Streamings and Savings: Black Friday Deals Come") == 0
+    assert zh_chars("") == 0
+    # 实测存在于信号库、属正常的中文标题
+    assert zh_chars("Google DeepMind发布Gemini 4 Neon模型") == 4
+    # 英文长标题即使混着几个中文字也不该过关
+    assert zh_chars("NVIDIA RTX Spark Compact Desktops Out Now") < 4
+    assert 0 < zh_ratio("DeepMind 发布 Gemini 4 Neon 模型") < 0.2
+

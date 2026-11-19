@@ -22,7 +22,7 @@ from .render import (BRIEF_MAX, brief_items, energy_items, focus_lead_item,
                      public_topic_title, radar_items, radar_rank, read_feed,
                      topic_body, topic_body_focus, topic_tags, write_feed)
 from .sources.fetchers import CST, fetch
-from .tagger import tag_candidates
+from .tagger import tag_candidates, zh_chars
 from .watchdog import RoundTimeout, arm as arm_watchdog, clear as clear_watchdog
 
 log = logging.getLogger("collector.pipeline")
@@ -57,6 +57,9 @@ class RoundReport:
     # 单独计数是为了能回答「相关度闸门到底挡掉了多少」——它现在混在 screened_out 里，
     # 而 screened_out 同时包含超窗口和被屏蔽域名，看不出闸门本身的分量。
     below_min_relevance: int = 0
+    # 2026-11-20：模型给出的标题里中文字符 < 4 个的条数（见 tagger.zh_chars）。
+    # 提示词要求「中文标题」，实测 118/119 条合格；这个计数是给将来漏网用的警报器。
+    title_non_zh: int = 0
     pending: int = 0
     # 行业源关键词前置过滤（2026-11-19）：见 settings.prefilter。
     # shadow 模式只统计不拦截；prefilter_model_kept 是「会挡掉、但模型其实保留了」的误伤数。
@@ -278,6 +281,7 @@ def run_round(cfg: Config, forum, llm, store, alerter, modules: list[str] | None
         new_by_key: dict[str, Signal] = {}
         url_ids: dict[str, list[str]] = {}
         to_update: dict[str, Signal] = {}
+        non_zh_titles: list[str] = []
         stamp = t0.isoformat(timespec="seconds")
         for c, r in zip(fresh, results):
             if not r.keep:
@@ -325,6 +329,13 @@ def run_round(cfg: Config, forum, llm, store, alerter, modules: list[str] | None
             sig.cred = compute_cred(sig.sources)
             new_by_key[r.event_key] = sig
             url_ids[uid] = [uid]
+            if zh_chars(sig.title) < 4:
+                rep.title_non_zh += 1
+                non_zh_titles.append(sig.title)
+
+        if non_zh_titles:
+            log.warning("有 %d 条保留信号的标题几乎不含中文（提示词要求中文标题）：%s",
+                        len(non_zh_titles), "；".join(t[:40] for t in non_zh_titles[:3]))
 
         # 6. 校验门槛与上限
         min_rel = rnd.get("min_relevance_to_post", 1)

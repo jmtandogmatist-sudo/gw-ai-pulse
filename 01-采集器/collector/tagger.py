@@ -73,6 +73,31 @@ FORCE_KEEP_RULE = """
 只有明显是招聘、活动预告、纯营销软文时，才给 keep=false。"""
 
 
+def zh_ratio(text: str) -> float:
+    """中文字符占比。用来监测「标题必须是中文」这条硬要求有没有被执行。
+
+    2026-11-20 实测：信号库 119 条的标题里，中文占比 < 20% 的只有 1 条
+    （"Google DeepMind发布Gemini 4 Neon模型" —— 品牌名占多数，属正常）。
+    也就是说提示词里那句「title：中文标题」模型一直在执行，
+    **不需要再做一层渲染时翻译**（那样每轮多一次模型调用，还会和 summary 口径打架）。
+    这里留一个计数器，是为了将来某天某个英文源开始漏出英文标题时能立刻看见，
+    而不是靠人翻帖子发现。
+    """
+    if not text:
+        return 0.0
+    return zh_chars(text) / len(text)
+
+
+def zh_chars(text: str) -> int:
+    """中文字符个数。
+
+    为什么不用纯占比：品牌名长的中文标题占比会很低——
+    "DeepMind 发布 Gemini 4 Neon 模型" 占比只有 0.14，但它是合格的中文标题。
+    判「有没有翻译」看的是**有没有中文句子成分**，所以按个数（≥4）判，不按占比。
+    """
+    return sum(1 for ch in text if "\u4e00" <= ch <= "\u9fff")
+
+
 @dataclass
 class TagResult:
     keep: bool

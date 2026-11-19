@@ -105,6 +105,16 @@ def to_cst_iso(value: str | None) -> str | None:
         if m:
             dt = datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)), tzinfo=CST)
     if dt is None:
+        # 2026-11-19：英文月名。claude.com/resources 写 "Aug 21, 2026"、
+        # anthropic.com/events 写 "Nov 30, 2026"，前面的三种解析器都接不住，
+        # 结果整页条目变成「无日期」被 undated 丢掉。解析不了的就留空，不猜。
+        for fmt in ("%b %d, %Y", "%B %d, %Y"):
+            try:
+                dt = datetime.strptime(value, fmt).replace(tzinfo=CST)
+                break
+            except ValueError:
+                continue
+    if dt is None:
         return None
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=CST)
@@ -152,16 +162,25 @@ def fetch_rss(src: dict) -> list[Candidate]:
 
 
 def fetch_listpage(src: dict) -> list[Candidate]:
-    """src.selectors: item（每条的容器）、link（容器内的 <a>，默认 a）、date（可选）、excerpt（可选）。"""
+    """src.selectors: item（每条的容器）、link（容器内的 <a>，默认 a）、date、title、excerpt。
+
+    link: self —— 条目本身就是那个 <a>（claude.com/resources 的卡片就是 <a> 本身）。
+    title      —— 标题所在元素。卡片链接里混着「Article / Aug 21, 2026 / 标题 / 标签」，
+                  直接取 <a> 全文会把类型和日期塞进标题，所以允许单独指定。
+    """
     html = http_get(src["url"])
     soup = BeautifulSoup(html, "html.parser")
     sel = src.get("selectors", {})
     out = []
     for node in soup.select(sel.get("item", "li")):
-        a = node.select_one(sel.get("link", "a"))
+        if sel.get("link") == "self":
+            a = node if node.name == "a" else node.select_one("a")
+        else:
+            a = node.select_one(sel.get("link", "a"))
         if a is None or not a.get("href"):
             continue
-        title = (a.get("title") or a.get_text(" ")).strip()
+        title_el = node.select_one(sel["title"]) if sel.get("title") else None
+        title = ((title_el.get_text(" ") if title_el else None) or a.get("title") or a.get_text(" ")).strip()
         date_el = node.select_one(sel["date"]) if sel.get("date") else None
         excerpt_el = node.select_one(sel["excerpt"]) if sel.get("excerpt") else None
         out.append(Candidate(

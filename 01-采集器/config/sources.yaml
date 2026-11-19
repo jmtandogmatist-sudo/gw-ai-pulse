@@ -41,6 +41,115 @@ sources:
   repo: anthropics/claude-code
   enabled: true
   verified: false
+- name: Claude 资源中心
+  module: ext_ai
+  kind: listpage
+  # 2026-11-20 新增（用户指定）。claude.com/resources 含 "Product updates" 板块
+  # （用户给的 /resources#product-updates 就是本页的一个锚点，不是独立页面）。
+  # 实测 200、卡片结构稳定：<a class="ResourceCard-*__card"> 内含 h3 标题与 span 日期（"Aug 21, 2026"）。
+  # 47 张卡片，其中 26 张带日期（视频卡片写 "1 min watch" 而不是日期 → 无日期按策略丢弃）。
+  tier: official
+  default_domain: 工具做法
+  questions:
+  - Q03
+  - Q04
+  url: https://claude.com/resources
+  selectors:
+    item: a[class*="ResourceCard"][class*="__card"]
+    link: self
+    title: h3[class*="ResourceCard"][class*="__title"]
+    date: span[class*="ResourceCard"][class*="__meta"]
+  enabled: true
+  verified: false
+- name: Anthropic 活动
+  module: ext_ai
+  kind: listpage
+  # 2026-11-20 新增（用户指定）。实测 200、Webflow 列表，10 条全部带日期（"Nov 30, 2026"）。
+  # 价值：re:Invent / Ignite / Briefing 这类活动是「生态与落地」的先行信号，
+  # 比新闻稿早，而且能看出 Anthropic 在企业侧的动向。
+  tier: official
+  default_domain: 选型
+  questions:
+  - Q03
+  url: https://www.anthropic.com/events
+  selectors:
+    item: div.event_list_item
+    link: a[href]
+    title: div.event_list_column.cc-name
+    date: div.event_list_column.cc-date
+  enabled: true
+  verified: false
+- name: Claude 社区
+  module: ext_ai
+  kind: page
+  # 2026-11-20 登记但**不可抓**：claude.com 是 Next.js App Router，
+  # 正文与日期全在 RSC flight payload（self.__next_f.push）里，静态 HTML 里没有卡片元素
+  # （实测 class 含 card 的元素 0 个，日期只出现在 <script> 文本中）。
+  # 真要抓得解 flight 数据或上无头浏览器——不符合「确定性采集」的取舍，先按参考页登记。
+  tier: official
+  default_domain: 选型
+  questions:
+  - Q03
+  url: https://claude.com/community
+  enabled: false
+  verified: false
+  note: 前端 RSC 渲染，静态 HTML 无条目；需专抓器才能纳入
+- name: Claude 学院（课程目录）
+  module: ext_ai
+  kind: page
+  # 2026-11-20 登记但**不产生信号**：academy.claude.com/zh-CN/all 有 24 门课，
+  # 但页面不提供任何「上架日期」，按 undated_policy 全会被丢。
+  # 若以后要「新课提醒」，做法是记录首次发现时间（像 GitHub Trending 那样），
+  # 而不是伪造开课日期——那需要先决定这类内容算不算情报。
+  tier: official
+  default_domain: 选型
+  questions:
+  - Q03
+  url: https://academy.claude.com/zh-CN/all
+  enabled: false
+  verified: false
+  note: 课程目录无日期，按 undated_policy 会被丢弃；仅作参考页
+- name: OpenAI 中文资讯
+  module: ext_ai
+  kind: page
+  # 2026-11-20 登记但**取不到**：openai.com 的 HTML 页面全部被 Cloudflare 挡掉（403），
+  # 浏览器 UA 和采集器 UA 都一样；只有 RSS 端点放行（openai.com/news/rss.xml，1413 条）。
+  # 也就是说这个中文页面的内容已由「OpenAI / Codex」的 RSS 通道覆盖，缺的只是中文标题。
+  tier: official
+  default_domain: 选型
+  questions:
+  - Q03
+  url: https://openai.com/zh-Hans-CN/news/
+  enabled: false
+  verified: false
+  note: HTML 被 Cloudflare 403；同内容走 news/rss.xml
+- name: OpenAI 发布说明
+  module: ext_ai
+  kind: page
+  # 2026-11-20 登记但**取不到**：同上，openai.com 全站 HTML 403
+  # （products/release-notes/、zh-Hans-CN/products/release-notes/ 都试过，同样 403；
+  #  rss 变体 /products/release-notes/rss.xml 也是 403）。
+  # 发布说明目前靠 news/rss.xml 里的公告条目 + GitHub releases（openai/codex）间接覆盖。
+  tier: official
+  default_domain: 工具做法
+  questions:
+  - Q04
+  url: https://openai.com/zh-Hans-CN/products/release-notes/
+  enabled: false
+  verified: false
+  note: HTML 与 rss 变体均 Cloudflare 403
+- name: OpenAI 学院
+  module: ext_ai
+  kind: page
+  # 2026-11-20 登记但**取不到**：openai.com 全站 HTML 403
+  tier: official
+  default_domain: 选型
+  questions:
+  - Q03
+  url: https://openai.com/zh-Hans-CN/academy/
+  enabled: false
+  verified: false
+  note: HTML 被 Cloudflare 403
 - id: deepmind-blog
   name: Google DeepMind / Gemini
   module: ext_ai

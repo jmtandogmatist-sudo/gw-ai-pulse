@@ -287,6 +287,11 @@ def tag_candidates(cands: list[Candidate], cfg: Config, client,
                 results.extend(TagResult(keep=True, error=f"模型调用失败：{e2}") for _ in batch)
                 continue
         except Exception as e:  # noqa: BLE001 —— 模型或网络异常只影响这一批
+            # 2026-11-19：这一支此前不打日志，只把原因写进每条 TagResult，
+            # 整批失败时 runs 表只留一个 model_failed 计数，事后完全看不到是什么错
+            # （当晚一轮 8 条就这么没了，日志里一句都没有）。至少留一行现场。
+            log.warning("整批打标失败（不重试）：%s；示例：%s", e,
+                        "；".join(c.title[:28] for c in batch[:2]))
             results.extend(TagResult(keep=True, error=f"模型调用失败：{e}") for _ in batch)
             continue
         missing = [j for j in range(len(batch)) if j not in by_idx]

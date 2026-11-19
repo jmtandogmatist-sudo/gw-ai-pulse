@@ -200,7 +200,10 @@ sources:
   questions:
   - Q04
   repo: modelcontextprotocol/modelcontextprotocol
-  enabled: true
+  # 2026-11-19 审计停用：28 轮抓 196 条 → 0 条信号。
+  # MCP 规范的 release 说明属「版本号」类内容，模型一致判为不值得；
+  # MCP 生态动态实际由 DSH 插件生态（5.26% 产出率）与 IT之家 覆盖，不缺这一路。
+  enabled: false
   verified: false
 - id: hf-blog
   name: Hugging Face
@@ -562,7 +565,8 @@ sources:
   questions:
   - Q01
   - Q02
-  enabled: true
+  # 2026-11-19 审计停用：27 轮抓 270 条 → 0 条信号。
+  enabled: false
   verified: true
 - name: BNEF 彭博新能源财经
   module: energy_policy
@@ -573,7 +577,8 @@ sources:
   questions:
   - Q01
   - Q09
-  enabled: true
+  # 2026-11-19 审计停用：27 轮抓 270 条 → 0 条信号。
+  enabled: false
   verified: true
 - name: OffshoreWind.biz 海上风电
   module: energy_policy
@@ -641,7 +646,8 @@ sources:
   default_domain: 能源AI
   questions:
   - Q01
-  enabled: true
+  # 2026-11-19 审计停用：27 轮抓 810 条 → 0 条信号。光伏装机/组件新闻与 AI 无关，占抓取量 6% 属纯浪费。要恢复请先说明它凭什么进 AI 雷达。
+  enabled: false
   verified: true
 - name: Krebs on Security
   module: security
@@ -711,7 +717,8 @@ sources:
   questions:
   - Q01
   - Q02
-  enabled: true
+  # 2026-11-19 审计停用：27 轮抓 540 条 → 0 条信号。竞对动态确实值得看，但那是「竞对通路」的事，不该指望 AI 雷达的 keep 判定去捞（见双通路方案）。
+  enabled: false
   verified: true
 - name: Nordex 恩德
   module: wind_peers
@@ -722,7 +729,8 @@ sources:
   questions:
   - Q01
   - Q02
-  enabled: true
+  # 2026-11-19 审计停用：27 轮抓 270 条 → 0 条信号。同 GE Vernova，竞对内容走竞对通路。
+  enabled: false
   verified: true
 - name: Enercon 爱纳康
   module: wind_peers
@@ -1051,7 +1059,8 @@ sources:
     item: .theme-doc-markdown
     date_heading: h2
   max_items: 15
-  enabled: true
+  # 2026-11-19 审计停用：21 轮抓 315 条 → 0 条信号。更新日志属「版本号」类内容，模型一致判为不值得（见漏斗归因）。
+  enabled: false
   verified: true
   note: 官网无 RSS；更新日志页结构稳定（h2 日期 + h3 发布标题），按标题逐条成候选。实测 25 条可解析。
 

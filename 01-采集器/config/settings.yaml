@@ -166,7 +166,6 @@ keep_bypass:
     - OpenAI / Codex
     - Anthropic / Claude
     - Google DeepMind / Gemini
-    - DeepSeek 官方更新日志
     - DSH 主仓库
     # 监管与政策原文（一手）
     - 国家网信办
@@ -175,12 +174,11 @@ keep_bypass:
     - 工业和信息化部
     # 行业机构与整机厂官方（一手）
     - GWEC 全球风能理事会
-    - WindEurope 欧洲风能协会
-    - BNEF 彭博新能源财经
-    - GE Vernova
-    - Nordex 恩德
-    - 东方电气
     - 新华网 · 能源频道
+    # 2026-11-19：随信源产出审计移出 6 家 —— DeepSeek 官方更新日志、WindEurope、
+    # BNEF、GE Vernova、Nordex、东方电气。它们在 sources.yaml 里已停用（27-28 轮 0 产出），
+    # 白名单留着只会让 check-config 报「登记了但抓不到」，也让「一手源覆盖」虚高。
+    # 恢复信源时记得同时加回这里，覆盖检查会告诉你它是否真的抓得到。
 
 # gw-ai-pulse（2026-11-19）今日焦点长文（方案 A）。
 # 问题：02 焦点原先就是 01 的第一条，素材只有 RSS 摘要（实测 105 字），渲染出来必然是一句话；

@@ -259,6 +259,13 @@ class FakeDiscourse:
         return {"topic_id": tid, "post_id": pid}
 
     def update_post(self, post_id, raw, reason):
+        # 2026-11-19：帖 ID 不存在时按真实论坛的行为抛 404，而不是 KeyError。
+        # 起因：试运行库跨进程累积，合并路径拿到的是上一轮进程建的 post_id，
+        # 这里直接 KeyError 把整轮打崩；而生产环境同样情况（帖被删）会返回 404，
+        # 被 pipeline 的 except DiscourseError 记成待人工。测试替身必须一样地失败，
+        # 否则「合并更新失败」这条兜底路径永远测不到。
+        if post_id not in self.posts:
+            raise DiscourseError(404, f"话题 {post_id} 不存在（可能是跨进程残留的 ID）")
         self.posts[post_id]["raw"] = raw
         self.writes += 1
         if self.dump_dir:

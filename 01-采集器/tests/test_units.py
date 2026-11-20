@@ -375,3 +375,23 @@ def test_zh_chars_flags_english_titles():
     assert zh_chars("NVIDIA RTX Spark Compact Desktops Out Now") < 4
     assert 0 < zh_ratio("DeepMind 发布 Gemini 4 Neon 模型") < 0.2
 
+
+
+def test_judged_ledger_prevents_rejudging(tmp_path):
+    """2026-11-20：候选台账。判过的条目在窗口期内不再重复送模型。
+
+    起因：arXiv 从「最新 30 条」（2.3 小时）改成「最近 4 天 600 条」（51 小时）后，
+    每轮会把 570 条已判过的论文重新送模型。台账让宽窗口付得起。
+    """
+    from collector.store import Store
+    st = Store(tmp_path / "idx.sqlite")
+    now = "2026-11-20T08:00:00+08:00"
+    st.mark_judged([("u-keep", now, 1, ""), ("u-drop", now, 0, "")])
+    got = st.judged_recent("2026-11-19T08:00:00+08:00")
+    assert got == {"u-keep", "u-drop"}
+    # 窗口外的不算「最近判过」，会被重新判
+    assert st.judged_recent("2026-11-21T08:00:00+08:00") == set()
+    # 同一 URL 重判会覆盖而不是报错
+    st.mark_judged([("u-drop", "2026-11-20T12:00:00+08:00", 1, "")])
+    assert len(st.judged_recent("2026-11-19T08:00:00+08:00")) == 2
+

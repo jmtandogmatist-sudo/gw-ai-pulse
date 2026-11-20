@@ -348,6 +348,14 @@ sources:
   - Q01
   - Q04
   url: http://export.arxiv.org/api/query?search_query=cat:cs.AI+OR+cat:cs.CL&sortBy=submittedDate&sortOrder=descending&max_results=60
+  # 2026-11-20：改为「按时间取」而不是「按条数取」。
+  # 证据：2611.22299（自改进 Agent Harness，11-17 06:55Z 提交）在现有配置下永远看不到——
+  # 当期窗口只有 2.3 小时；要覆盖 24h 需 242 条、72h 需 400+ 条；它在今天最新 400 条之外 41 分钟。
+  # 窗口按时间取，条数按「能覆盖窗口」给足：实测 600 条约覆盖 51 小时，含 API 约 1.5 天延迟。
+  # 之所以敢给到 600：候选台账（store.judged，2026-11-20）让判过的条目在 72 小时内不再重判，
+  # 所以只有首轮贵，之后每轮只判真正新增的几十条。
+  date_window_days: 4
+  max_items: 600
   enabled: true
   verified: false
 - id: github-trending

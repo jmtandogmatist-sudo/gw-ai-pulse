@@ -46,6 +46,18 @@ CREATE TABLE IF NOT EXISTS state (
   key TEXT PRIMARY KEY,
   value TEXT
 );
+-- 2026-11-20：候选层台账。此前 known_url 只认「已经发成信号」的 URL，
+-- 被模型判掉（keep=false）的条目下一轮还会被重新抓到、重新送模型。
+-- 后果不是多发帖，而是「不敢把信源窗口开大」：arXiv 从按条数(30 条/2.3 小时)
+-- 改成按时间(600 条/51 小时)之后，每轮要多送 570 条重复论文给模型。
+-- 有了这张表，判过的条目在窗口期内不再送判，宽窗口才付得起。
+CREATE TABLE IF NOT EXISTS judged (
+  url_id TEXT PRIMARY KEY,
+  judged_at TEXT NOT NULL,
+  keep INTEGER NOT NULL,
+  reason TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_judged_time ON judged(judged_at);
 -- gw-ai-pulse（2026-11-16）：社区帖子扫描记录。
 -- 人发的帖子「原地打标签，不复制」：只记在这里，不生成新的信号话题。
 -- 主键是 topic_id，保证同一个帖子只打一次标签、「本周 +N」不会每轮重复计数。
@@ -73,6 +85,19 @@ class Store:
     def known_url(self, url_id: str) -> bool:
         row = self.db.execute("SELECT 1 FROM url_alias WHERE url_id=?", (url_id,)).fetchone()
         return row is not None
+
+    def judged_recent(self, since_iso: str) -> set[str]:
+        """窗口期内已经判过的候选 URL（含被判掉的）。"""
+        return {r[0] for r in self.db.execute(
+            "SELECT url_id FROM judged WHERE judged_at>=?", (since_iso,))}
+
+    def mark_judged(self, rows: list[tuple[str, str, int, str]]) -> None:
+        """记下本轮确实拿到结论的候选：(url_id, judged_at, keep, reason)。"""
+        if not rows:
+            return
+        self.db.executemany(
+            "INSERT OR REPLACE INTO judged(url_id,judged_at,keep,reason) VALUES(?,?,?,?)", rows)
+        self.db.commit()
 
     def by_event_key(self, key: str) -> Signal | None:
         row = self.db.execute("SELECT data FROM signals WHERE event_key=? ORDER BY discovered_at LIMIT 1", (key,)).fetchone()

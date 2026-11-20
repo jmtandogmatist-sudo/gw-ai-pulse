@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 from .config import Config
 from .credibility import CRED_LABEL
 from .models import Signal
+from .textnorm import drop_restating_lead, is_restatement
 
 log = logging.getLogger("collector.render")
 
@@ -454,9 +455,17 @@ def _clip(text: str, limit: int) -> str:
 
 
 def _brief_text(sig: Signal) -> str:
-    """简报一句话：标题 + 首句。标题自带冒号时用句号连接，避免「A：B：C」。"""
+    """简报一句话：标题 + 首句。标题自带冒号时用句号连接，避免「A：B：C」。
+
+    gw-ai-pulse（2026-11-20）：模型偶尔把标题原样复述进摘要首句，机械拼接会让首页出现
+    「国家能源局发布《中国虚拟电厂发展报告（2026）》：国家能源局发布了《中国虚拟电厂发展报告（2026）》。」
+    这种车轱辘话（生产实例 t/866）。所以先丢掉复述标题的开头句，再取首句；
+    摘要里一句新信息都没有时，只留标题——宁可短，也不要把同一句话说两遍。
+    """
     t = _strip_date_suffix(sig.title)
-    first = _first_sentence(sig.summary)
+    first = _first_sentence(drop_restating_lead(t, sig.summary, keep_if_all=False))
+    if first and is_restatement(t, first):
+        first = ""
     joiner = "。" if re.search(r"[：:]", t + first[:16]) else "："
     return _clip(f"{t}{joiner}{first}" if first else t, BRIEF_LIMIT)
 
@@ -612,19 +621,30 @@ def today_label(now: datetime) -> str:
     return f"{now.year}年{now.month}月{now.day}日 · 星期{_CN_WEEK[now.weekday()]}"
 
 
+def brief_signals(signals: list[Signal], limit: int = BRIEF_MAX,
+                  now: datetime | None = None, per_source: int = 0) -> list[Signal]:
+    """01 THE BRIEF 选中的信号本体。
+
+    单独抽出来（2026-11-20）是为了让「04 今日值得看」能按信号去重：
+    原先 brief_items 只返回渲染好的三行文字，update_feed 手里拿不到「哪几条已经上过 01」，
+    于是同一篇文章既在 01 又在 04（生产实例：Gemini Tool Retrieval、自我改进 Harness）。
+    """
+    return _top_picks(signals, limit, per_source, now)
+
+
+def brief_item(sig: Signal) -> dict:
+    src = sig.sources[0] if sig.sources else None
+    return {
+        "text": _brief_text(sig),
+        "url": src.url if src else "",
+        "source": src.name if src else "",
+    }
+
+
 def brief_items(signals: list[Signal], limit: int = BRIEF_MAX,
                 now: datetime | None = None, per_source: int = 0) -> list[dict]:
     """01 THE BRIEF：至多 3 条「今天发生了什么」。per_source 见 _diverse。"""
-    picked = _top_picks(signals, limit, per_source, now)
-    out = []
-    for s in picked:
-        src = s.sources[0] if s.sources else None
-        out.append({
-            "text": _brief_text(s),
-            "url": src.url if src else "",
-            "source": src.name if src else "",
-        })
-    return out
+    return [brief_item(s) for s in brief_signals(signals, limit, now=now, per_source=per_source)]
 
 
 def lead_item(signals: list[Signal], now: datetime | None = None,
@@ -730,3 +750,23 @@ def pick_items(signals: list[Signal], limit: int = PICKS_MAX,
             "url": src.url,
         })
     return out
+
+
+def picks_excluding(signals: list[Signal], *, exclude: list[Signal],
+                    limit: int = PICKS_MAX, now: datetime | None = None,
+                    per_source: int = 0) -> list[dict]:
+    """04「今日值得看」，但排掉已经上过 01 简报 / 02 焦点的条目。
+
+    gw-ai-pulse（2026-11-20）：01 与 04 原先各自从整个信号池里挑，谁也不看谁，
+    同一篇文章就会在一屏里出现两次。生产实例（632 底座帖）：
+        01[2] Gemini API Tool Retrieval      = 04[1]
+        01[3] 谷歌自我改进 Harness 架构        = 04[2]
+    四条推荐里两条是重复的，读者会以为系统重了。
+    按信号本身 + 任一来源 URL 双重排除：不同事件键指向同一篇文章时也能拦住。
+    """
+    excluded_ids = {id(s) for s in exclude}
+    excluded_urls = {src.url for s in exclude for src in getattr(s, "sources", [])}
+    pool = [s for s in signals
+            if id(s) not in excluded_ids
+            and not any(src.url in excluded_urls for src in getattr(s, "sources", []))]
+    return pick_items(pool, limit, now=now, per_source=per_source)

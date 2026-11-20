@@ -15,10 +15,10 @@ from . import focus
 from .discourse import DiscourseError
 from .models import Candidate, Signal, SourceRef
 from .pubdate import fill_published_at
-from .render import (BRIEF_MAX, brief_items, energy_items, focus_lead_item,
+from .render import (BRIEF_MAX, brief_item, brief_signals, energy_items, focus_lead_item,
                      focus_topic_tags, lead_item, mainline_text,
                      pick_energy, today_label,
-                     pick_items, public_topic_body, public_topic_tags,
+                     picks_excluding, public_topic_body, public_topic_tags,
                      public_topic_title, radar_items, radar_rank, read_feed,
                      topic_body, topic_body_focus, topic_tags, write_feed)
 from .sources.fetchers import CST, fetch
@@ -179,10 +179,13 @@ def run_round(cfg: Config, forum, llm, store, alerter, modules: list[str] | None
         # 2026-10-30 的网信办公告（超窗 17 天）被当成新信号发布。现在先从 URL 补日期。
         window = t0 - timedelta(hours=rnd.get("window_hours", 72))
         undated_policy = rnd.get("undated_policy", "drop")   # drop / keep
+        # 2026-11-20：窗口期内判过的候选不再重判（judged 台账）。
+        # 只跳过「已经拿到结论」的，模型故障/待人工的不在其中，下轮照常重试。
+        judged = store.judged_recent((t0 - timedelta(hours=rnd.get("window_hours", 72))).isoformat())
         seen, fresh = set(), []
         for c in cands:
             uid = signal_id(c.url)
-            if uid in seen or store.known_url(uid):
+            if uid in seen or store.known_url(uid) or uid in judged:
                 rep.duplicates += 1
                 continue
             seen.add(uid)
@@ -269,6 +272,18 @@ def run_round(cfg: Config, forum, llm, store, alerter, modules: list[str] | None
             if kept_pf:
                 log.warning("前置过滤若生效会误伤 %d 条：%s", len(kept_pf),
                             "；".join(rep.prefilter_misses))
+
+        # 台账：把本轮确实拿到结论的候选记下来（keep 或 keep=false 都算结论）。
+        # 有 error 的一律不记——模型故障该重试；校验不过（pending）也该下轮重判一次，
+        # 否则一次模型抽风就会让这条目在 72 小时内彻底消失。
+        if results:
+            verdict_time = t0.isoformat(timespec="seconds")
+            store.mark_judged([
+                (signal_id(c.url), verdict_time, 1 if (r.keep and not r.error) else 0,
+                 "" if not r.error else f"err:{r.error[:60]}")
+                for c, r in zip(fresh, results)
+                if not r.error          # 任何错误都不记：模型故障和校验不过下轮都该重试
+            ])
 
         rep.llm_calls = getattr(llm, "calls", 0)
         if fresh and results and all(r.error and r.error.startswith("模型调用失败") for r in results):
@@ -612,8 +627,25 @@ def update_feed(cfg: Config, forum, store, now: datetime,
     # 跟着一起写不进去（update_feed 整体失败会让底座帖整篇不刷新）。
     # gw-ai-pulse（2026-11-19）：02 焦点单独成篇后，这条信号已经在 02 顶部完整出现，
     # 02 右栏「金风 / 能源相关」不再重复列它（同一屏两次同一件事，读者会以为系统重了）。
+    # gw-ai-pulse（2026-11-20）：01 简报 / 02 焦点 / 02 右栏 / 04 今日值得看四块原先
+    # 各自从整个信号池里挑，谁也不看谁，同一篇文章会在同一屏出现两次
+    # （生产实例：01[1] 虚拟电厂 = 02 右栏第一条；01[2][3] = 04 推荐的前两条）。
+    # 这里先把「01 + 焦点」占用的信号算出来，后面三块统一按它排除。
     focus_sig = next((x for x in sigs if getattr(x, "focus", False)), None)
-    pool_sigs = [x for x in sigs if x is not focus_sig]
+    brief_pool = [x for x in sigs if x is not focus_sig]
+    brief_sigs = brief_signals(brief_pool, BRIEF_MAX, now=now,
+                               per_source=int(f.get("brief_max_per_source", 0) or 0))
+    taken_sigs = list(brief_sigs) + ([focus_sig] if focus_sig is not None else [])
+    taken_ids = {id(x) for x in taken_sigs}
+    taken_urls = {src.url for x in taken_sigs for src in getattr(x, "sources", [])}
+
+    def _not_taken(x) -> bool:
+        """没被 01/02 用掉：既比信号本身，也比来源 URL（不同事件键指向同一篇文章也算重复）。"""
+        if id(x) in taken_ids:
+            return False
+        return not any(src.url in taken_urls for src in getattr(x, "sources", []))
+
+    pool_sigs = [x for x in sigs if _not_taken(x)]
     ecfg = f.get("energy") or {}
     if ecfg.get("enabled", True):
         try:
@@ -648,8 +680,8 @@ def update_feed(cfg: Config, forum, store, now: datetime,
         # gw-ai-pulse（2026-11-19）：02 焦点单独处理。
         # 有焦点信号时，02 = 焦点长文的入口卡（导语 + 3 条要点，标题链到话题），
         # 01 简报把这条让出去——否则同一页两处讲同一件事，读者会以为系统重复了。
-        brief_pool = [x for x in sigs if x is not focus_sig]
-        feed["brief"] = brief_items(brief_pool, BRIEF_MAX, now=now, per_source=brief_per_src)
+        # brief_sigs 已在上面算好（02 右栏与 04 都要用它去重），这里只做渲染
+        feed["brief"] = [brief_item(s) for s in brief_sigs]
         lead = (focus_lead_item(focus_sig) if focus_sig is not None
                 else lead_item(brief_pool, now=now, per_source=brief_per_src))
         if lead:
@@ -660,7 +692,10 @@ def update_feed(cfg: Config, forum, store, now: datetime,
         ml = mainline_text(sigs, now=now, per_source=brief_per_src)
         if ml:
             feed["mainline"] = ml
-        picks = pick_items(sigs, now=now, per_source=picks_per_src)
+        # gw-ai-pulse（2026-11-20）：01 与 04 各自从整个池子里挑，同一篇文章会在
+        # 一屏里出现两次（生产实例：632 的四条推荐里两条正是 01 的二三条）。
+        # 这里把 01 简报 + 02 焦点已经用掉的信号排除掉再挑 04。
+        picks = picks_excluding(sigs, exclude=taken_sigs, now=now, per_source=picks_per_src)
         if picks:
             feed["picks"] = picks
         elif "picks" in feed:

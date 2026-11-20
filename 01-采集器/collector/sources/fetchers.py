@@ -133,8 +133,39 @@ def _strip_html(s: str, limit: int = 600) -> str:
     return re.sub(r"\s+", " ", BeautifulSoup(s or "", "html.parser").get_text(" ")).strip()[:limit]
 
 
+def _with_date_window(url: str, days: int) -> str:
+    """把 arXiv 这类 atom 查询改写成「最近 N 天」的区间查询（2026-11-20）。
+
+    起因：用户问「arxiv.org/html/2611.22299v1 为什么没被检索到」。实测三件事：
+      1. 我们订阅的是「最新 N 条」，窗口宽度由条数决定，不是时间——当期只覆盖 2.3 小时；
+      2. apply_filters 默认把结果截到 30 条（配置写 60 也没用），窗口再砍一半；
+      3. arXiv 的 atom 接口本身有约 1.5 天延迟，且 cs.AI+cs.CL 每天 240+ 条
+         （实测要覆盖 24 小时需 242 条、覆盖 72 小时需 400 条以上）。
+    那篇论文提交于 11-17 06:55Z，连「最新 400 条」都在边界外 41 分钟，所以按条数取永远看不到。
+
+    改成按时间取：查「最近 N 天」，条数上限放到能覆盖住（见 max_results）。
+    这样窗口与 pipeline 的 72 小时门禁对齐，也不会因为某个类目投稿暴增而漏。
+    """
+    from datetime import datetime, timedelta, timezone
+    from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+    now = datetime.now(timezone.utc)
+    rng = (f"submittedDate:[{(now - timedelta(days=days)):%Y%m%d%H%M} TO {now:%Y%m%d%H%M}]")
+    u = urlparse(url)
+    q = parse_qs(u.query, keep_blank_values=True)
+    base = (q.get("search_query") or [""])[0]
+    q["search_query"] = [f"({base}) AND {rng}" if base else rng]
+    q.setdefault("sortBy", ["submittedDate"])
+    q.setdefault("sortOrder", ["descending"])
+    q["max_results"] = [str(max(int(q.get("max_results", ["60"])[0]), 600))]
+    flat = {k: v[0] for k, v in q.items()}
+    return urlunparse(u._replace(query=urlencode(flat, safe="():[]")))
+
+
 def fetch_rss(src: dict) -> list[Candidate]:
-    raw = http_get(src["url"])
+    url = src["url"]
+    if src.get("date_window_days"):
+        url = _with_date_window(url, int(src["date_window_days"]))
+    raw = http_get(url)
     root = ET.fromstring(raw.encode("utf-8") if isinstance(raw, str) else raw)
     atom = "{http://www.w3.org/2005/Atom}"
     items = root.findall(".//item")

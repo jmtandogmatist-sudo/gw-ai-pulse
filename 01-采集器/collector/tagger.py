@@ -17,6 +17,7 @@ import requests
 from .config import Config, get_secret
 from .dedup import check_event_key, normalize_event_key
 from .models import Candidate
+from .textnorm import drop_restating_lead, flatten_book_marks
 
 # gw-ai-pulse（2026-11-16）：模型推断的 event_date 与信源发布日期允许的最大偏差。
 # 超过即认定为编造，改用信源日期。留 1 天容纳「晚上发布、次日早晨采集」的跨日。
@@ -45,8 +46,15 @@ SYSTEM_PROMPT = """你是金风科技集团 AI 情报站的信号编辑。你会
 - questions：它回答了哪些问题，填问题编号数组，可为空数组
 - topics：从这些主题标签里选 0–2 个，没有合适的就空数组：{topics}
 - relevance：对金风的相关度，0–3 的整数。3=直接影响集团业务或决策；2=值得相关团队知道；1=行业背景；0=基本无关
-- title：中文标题，一句话说清发生了什么，{min_title}–40 个字（论坛要求标题至少 {min_title} 个字），不加书名号以外的修饰
-- summary：中文摘要，不超过 3 句、120 字，只写原文里有的事实，不推测、不夸大
+- title：中文标题，一句话说清发生了什么，{min_title}–40 个字（论坛要求标题至少 {min_title} 个字），不加书名号以外的修饰。
+  **标题必须与原文标题语义一致**：原文是「解读」「评论」「专访」「问答」「转载」这类体裁的，标题要保留这个定性，
+  不得改写成「发布」「官宣」「正式出台」等更强的事实性说法（2026-11-20 生产事故：国家能源局的《报告》解读稿
+  被写成「国家能源局发布《…报告》」，点进去发现是解读文，标题与原文对不上）。拿不准就用原文标题，去掉站点名与日期。
+  标题里最多一层书名号，不要嵌套，不要出现 《…《…》…》。
+- summary：中文摘要，不超过 3 句、120 字，只写原文里有的事实，不推测、不夸大。
+  **第一句必须给标题之外的新信息**（数字、范围、时间、影响对象、原文表态），
+  不要用「XX 发布了 XX」「XX 宣布 XX」这种把标题再说一遍的句子开头；
+  也不要把信源媒体名、报道渠道写进摘要（「该报告由新华网报道」不是信息）。
 - us：一句话说明「为什么值得关注」，不超过 50 字。**这个话题对所有人可见（含未登录访客），按公开可读来写**：
   只写这件事对风电与新能源业务的影响点、值得关注什么（外部视角：成本、技术路线、政策义务、风险）；
   不写集团内部动作（要核查什么、安排谁跟进、申报什么试点）、不写内部团队或项目名、不写未公开的经营打算；
@@ -201,8 +209,12 @@ def validate_item(obj: dict, cfg: Config, cand: Candidate | None = None) -> TagR
         relevance = -1
     if not 0 <= relevance <= 3:
         errs.append("相关度不在 0–3")
-    title = (obj.get("title") or "").strip()
-    summary = (obj.get("summary") or "").strip()
+    # gw-ai-pulse（2026-11-20）：标题与摘要互相复述会让首页 01 出现车轱辘话
+    # （「…（报告）》：国家能源局发布了《…（报告）》」，生产实例 t/866）。
+    # 这里做两件确定性的事：压平嵌套书名号、丢掉摘要开头复述标题的句子。
+    # 提示词也已经写清规则，这里是兜底——模型不照做时不该让脏数据上线。
+    title = flatten_book_marks((obj.get("title") or "").strip())
+    summary = drop_restating_lead(title, (obj.get("summary") or "").strip())
     us = (obj.get("us") or "").strip()
     min_title = cfg.settings["discourse"].get("min_title_chars", 15)
     if len(title) < min_title or len(title) > 60:

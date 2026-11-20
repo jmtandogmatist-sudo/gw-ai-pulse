@@ -55,7 +55,13 @@ CREATE TABLE IF NOT EXISTS judged (
   url_id TEXT PRIMARY KEY,
   judged_at TEXT NOT NULL,
   keep INTEGER NOT NULL,
-  reason TEXT NOT NULL DEFAULT ''
+  reason TEXT NOT NULL DEFAULT '',
+  -- 2026-11-20：把模型的判定结果原样存下来。
+  -- 起因：换了论文判据后 keep=true 远多于每轮发帖配额（469 判 / 182 留 / 只发 10），
+  -- 而被配额挡住的条目「判过了但没发出去」，既不能按 keep=false 跳过（会永久丢失），
+  -- 也不能不记（下一轮要重判 172 条，实测首轮 994 秒、逼近 1200 秒看门狗）。
+  -- 存下 verdict 后：下一轮不再调模型，直接用旧判定组信号发帖。
+  verdict TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_judged_time ON judged(judged_at);
 -- gw-ai-pulse（2026-11-16）：社区帖子扫描记录。
@@ -80,23 +86,33 @@ class Store:
             Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(self.path)
         self.db.executescript(SCHEMA)
+        # 轻量迁移：老库里 judged 表还没有 verdict 列（2026-11-20 加的）。
+        # 用 PRAGMA 判断而不是 try/except，避免把「表不存在」这类真问题一起吞掉。
+        cols = {r[1] for r in self.db.execute("PRAGMA table_info(judged)")}
+        if "verdict" not in cols:
+            self.db.execute("ALTER TABLE judged ADD COLUMN verdict TEXT NOT NULL DEFAULT ''")
+            self.db.commit()
 
     # ---- 信号 ----
     def known_url(self, url_id: str) -> bool:
         row = self.db.execute("SELECT 1 FROM url_alias WHERE url_id=?", (url_id,)).fetchone()
         return row is not None
 
-    def judged_recent(self, since_iso: str) -> set[str]:
-        """窗口期内已经判过的候选 URL（含被判掉的）。"""
-        return {r[0] for r in self.db.execute(
-            "SELECT url_id FROM judged WHERE judged_at>=?", (since_iso,))}
+    def judged_recent(self, since_iso: str) -> dict[str, tuple[int, str]]:
+        """窗口期内已经判过的候选：url_id → (keep, verdict_json)。
 
-    def mark_judged(self, rows: list[tuple[str, str, int, str]]) -> None:
-        """记下本轮确实拿到结论的候选：(url_id, judged_at, keep, reason)。"""
+        keep=0 的下一轮直接跳过（省预算）；keep=1 的用 verdict 复用，不再调模型。
+        """
+        return {r[0]: (int(r[1]), r[2] or "") for r in self.db.execute(
+            "SELECT url_id, keep, verdict FROM judged WHERE judged_at>=?", (since_iso,))}
+
+    def mark_judged(self, rows: list[tuple[str, str, int, str, str]]) -> None:
+        """记下本轮确实拿到结论的候选：(url_id, judged_at, keep, reason, verdict_json)。"""
         if not rows:
             return
         self.db.executemany(
-            "INSERT OR REPLACE INTO judged(url_id,judged_at,keep,reason) VALUES(?,?,?,?)", rows)
+            "INSERT OR REPLACE INTO judged(url_id,judged_at,keep,reason,verdict) VALUES(?,?,?,?,?)",
+            rows)
         self.db.commit()
 
     def by_event_key(self, key: str) -> Signal | None:

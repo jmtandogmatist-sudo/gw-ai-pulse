@@ -386,14 +386,17 @@ def test_judged_ledger_prevents_rejudging(tmp_path):
     from collector.store import Store
     st = Store(tmp_path / "idx.sqlite")
     now = "2026-11-20T08:00:00+08:00"
-    st.mark_judged([("u-keep", now, 1, ""), ("u-drop", now, 0, "")])
+    st.mark_judged([("u-keep", now, 1, "", '{"title":"留着但没发出去"}'), ("u-drop", now, 0, "", "")])
     got = st.judged_recent("2026-11-19T08:00:00+08:00")
-    assert got == {"u-keep", "u-drop"}
+    # keep=0 的跳过；keep=1 的带着 verdict 回来，下一轮不再调模型（2026-11-20 A 方案）
+    assert got["u-drop"] == (0, "")
+    assert got["u-keep"][0] == 1 and "留着但没发出去" in got["u-keep"][1]
     # 窗口外的不算「最近判过」，会被重新判
-    assert st.judged_recent("2026-11-21T08:00:00+08:00") == set()
+    assert st.judged_recent("2026-11-21T08:00:00+08:00") == {}
     # 同一 URL 重判会覆盖而不是报错
-    st.mark_judged([("u-drop", "2026-11-20T12:00:00+08:00", 1, "")])
-    assert len(st.judged_recent("2026-11-19T08:00:00+08:00")) == 2
+    st.mark_judged([("u-drop", "2026-11-20T12:00:00+08:00", 1, "", '{"title":"x"}')])
+    got2 = st.judged_recent("2026-11-19T08:00:00+08:00")
+    assert len(got2) == 2 and got2["u-drop"][0] == 1
 
 
 

@@ -22,7 +22,7 @@ from .render import (BRIEF_MAX, brief_item, brief_signals, energy_items, focus_l
                      public_topic_title, radar_items, radar_rank, read_feed,
                      topic_body, topic_body_focus, topic_tags, write_feed)
 from .sources.fetchers import CST, TRUNCATIONS, fetch
-from .tagger import tag_candidates, zh_chars
+from .tagger import TagResult, tag_candidates, zh_chars
 from .watchdog import RoundTimeout, arm as arm_watchdog, clear as clear_watchdog
 
 log = logging.getLogger("collector.pipeline")
@@ -56,6 +56,7 @@ class RoundReport:
     research_judged: int = 0
     research_kept: int = 0
     paper_posted: int = 0
+    verdicts_reused: int = 0     # 复用上一轮判定（省掉模型调用）的条数
     # 今日焦点（2026-11-19）：本轮是否出了一篇焦点长文，以及没出/降级的原因。
     focus_posted: int = 0
     focus_chars: int = 0
@@ -87,7 +88,8 @@ class RoundReport:
     community_scanned: int = 0  # 扫到的社区帖子数
     community_tagged: int = 0   # 本轮新打上主题标签的帖子数
     llm_calls: int = 0
-    query_stats: dict = field(default_factory=dict)  # A/B 层检索词库执行统计
+    query_stats: dict = field(default_factory=dict)   # A/B 层检索词库执行统计
+    query_error: str = ""        # 检索词库失败原因（不参与「所有信源失败」判定，见审计 B7）
     feed_updated: bool = False
     feed_error: str = ""
     # 长期失败的信源（连续失败 ≥ source_fail_alert_after）：名 → {fails, error}
@@ -176,7 +178,12 @@ def run_round(cfg: Config, forum, llm, store, alerter, modules: list[str] | None
                 cands.extend(found)
                 rep.query_stats = qstats
             except Exception as e:  # noqa: BLE001 —— 检索词库失败不阻断订阅抓取
-                rep.failed_sources["检索词库(A/B层)"] = str(e)[:200]
+                # 2026-11-20 审计 B7：这一条曾塞进 failed_sources，而「所有信源都失败」的判据是
+                # len(failed_sources) == len(sources)。词库是第 N+1 个条目，于是全部信源挂掉时
+                # 等式不成立 → 不判 fatal → 记为成功、无告警、last_success_at 被更新。
+                # 假成功比丢数据更危险，所以词库失败单独记，不参与那个等式。
+                rep.query_error = str(e)[:200]
+                log.warning("检索词库(A/B层)失败：%s", e)
 
         rep.candidates = len(cands)
         # 分阶段留痕（2026-11-19）：原来一轮只在结束时打一行汇总，
@@ -191,14 +198,26 @@ def run_round(cfg: Config, forum, llm, store, alerter, modules: list[str] | None
         window = t0 - timedelta(hours=rnd.get("window_hours", 72))
         undated_policy = rnd.get("undated_policy", "drop")   # drop / keep
         # 2026-11-20：窗口期内判过的候选不再重判（judged 台账）。
-        # 只跳过「已经拿到结论」的，模型故障/待人工的不在其中，下轮照常重试。
+        #   - keep=false：结论明确，直接跳过；
+        #   - keep=true ：上一轮过了判据但被发帖配额挡住（论文配额 10 条/轮，实测留 182 条），
+        #                 这里复用旧判定，不再调模型（reused 计数）。否则每轮要重判 172 条，
+        #                 首轮实测 994 秒、逼近 1200 秒看门狗。
         judged = store.judged_recent((t0 - timedelta(hours=rnd.get("window_hours", 72))).isoformat())
-        seen, fresh = set(), []
+        seen, fresh, verdict_cache = set(), [], {}
         for c in cands:
             uid = signal_id(c.url)
-            if uid in seen or store.known_url(uid) or uid in judged:
+            if uid in seen or store.known_url(uid):
                 rep.duplicates += 1
                 continue
+            if uid in judged:
+                keep, verdict = judged[uid]
+                if not keep:
+                    rep.duplicates += 1
+                    continue
+                if verdict:                       # 复用上次的判定，不调模型
+                    verdict_cache[uid] = verdict
+                else:                             # 老台账没存 verdict，只能重判
+                    pass
             seen.add(uid)
 
             fill_published_at(c, now=t0)                     # URL 日期戳兜底
@@ -253,10 +272,17 @@ def run_round(cfg: Config, forum, llm, store, alerter, modules: list[str] | None
         # 论文标题是方法名、摘要讲机制，「与集团 9 个问题是否相关」这套判据等于全丢
         # （历史 26/26 判 keep=false，而二手媒体把同一篇写成「成功率提升 8 倍」就进了首页）。
         # 分成两次调用是为了不混批：一批里既有新闻又有论文时，模型只能按一套判据判。
+        cached_idx = [i for i, c in enumerate(fresh) if signal_id(c.url) in verdict_cache]
         if fresh:
-            res_idx = [i for i, c in enumerate(fresh) if c.source_tier == "research"]
-            gen_idx = [i for i, c in enumerate(fresh) if c.source_tier != "research"]
+            res_idx = [i for i, c in enumerate(fresh)
+                       if c.source_tier == "research" and i not in set(cached_idx)]
+            gen_idx = [i for i, c in enumerate(fresh)
+                       if c.source_tier != "research" and i not in set(cached_idx)]
             results = [None] * len(fresh)  # type: ignore[list-item]
+            for i in cached_idx:          # 复用上一轮判定（keep=true 但没发出去的）
+                v = json.loads(verdict_cache[signal_id(fresh[i].url)])
+                results[i] = TagResult(**v)
+            rep.verdicts_reused = len(cached_idx)
             if gen_idx:
                 for i, r in zip(gen_idx, tag_candidates([fresh[i] for i in gen_idx], cfg, llm)):
                     results[i] = r
@@ -317,9 +343,14 @@ def run_round(cfg: Config, forum, llm, store, alerter, modules: list[str] | None
         if results:
             verdict_time = t0.isoformat(timespec="seconds")
             store.mark_judged([
-                (signal_id(c.url), verdict_time, 0, "keep=false")
+                (signal_id(c.url), verdict_time, 1 if r.keep else 0,
+                 "" if r.keep else "keep=false",
+                 json.dumps({"keep": True, "domain": r.domain, "questions": r.questions,
+                             "topics": r.topics, "relevance": r.relevance, "title": r.title,
+                             "summary": r.summary, "us": r.us, "event_key": r.event_key,
+                             "event_date": r.event_date}, ensure_ascii=False) if r.keep else "")
                 for c, r in zip(fresh, results)
-                if not r.error and not r.keep
+                if not r.error
             ])
 
         rep.llm_calls = getattr(llm, "calls", 0)

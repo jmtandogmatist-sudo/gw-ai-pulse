@@ -5,7 +5,7 @@
   },
   "about.json": {
     "bytes": 375,
-    "sha256": "aab6ea5df561be480709c5c58804a021d9f8c59482208250b1537d0e06f58a07"
+    "sha256": "858ff5b5e73daeaf0ee767af03b91593fac0b57d69e75a4a5a5129e16764a168"
   },
   "settings.yml": {
     "bytes": 6432,
@@ -21,7 +21,7 @@
   },
   "javascripts/discourse/lib/ai-pulse-feed.js": {
     "bytes": 24463,
-    "sha256": "28d2ceafb6a086d4395a13dd1f1d4e6b675835d951788fe41d2b8a2c7e0b0fd9"
+    "sha256": "a07f407ad6d6df3f8a629f91dbb4e3045885134339c8459187011fff151ad474"
   },
   "javascripts/discourse/api-initializers/ai-pulse-home.js": {
     "bytes": 391,

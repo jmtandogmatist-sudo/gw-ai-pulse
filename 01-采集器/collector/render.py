@@ -442,11 +442,18 @@ def _strip_date_suffix(title: str) -> str:
 
 
 def _first_sentence(text: str, limit: int = 120) -> str:
+    """取第一句，最多 limit 字。
+
+    gw-ai-pulse（2026-11-20）：ASCII 句点只有**后面跟空白或结尾**时才算句末。
+    原先一律当句末，版本号被打断——生产实测 04「今日值得看」第 2 条的摘要
+    只剩「Claude Code v2.」，因为原句是「Claude Code v2.1.328 发布……」。
+    """
     t = re.sub(r"\s+", " ", (text or "").strip())
     if not t:
         return ""
-    m = re.match(r"(.+?[。！？.!?])", t)
-    return (m.group(1) if m else t)[:limit]
+    m = re.search(r"[。！？]|\.(?=\s|$)", t)
+    end = m.end() if m else len(t)
+    return t[: min(end, limit)]
 
 
 def _clip(text: str, limit: int) -> str:

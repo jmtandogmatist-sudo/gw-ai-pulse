@@ -95,3 +95,18 @@ def test_prompt_forbids_title_summary_duplication(cfg):
     assert "必须与原文标题语义一致" in p
     assert "不要嵌套" in p
     assert "第一句必须给标题之外的新信息" in p
+
+def test_first_sentence_keeps_version_numbers_whole():
+    """04 的摘要只取首句：版本号里的 ASCII 句点不能被当句末。
+
+    生产实例（2026-11-20）：信号摘要「Claude Code v2.1.328 发布……」
+    被旧的 `_first_sentence` 截成「Claude Code v2.」，首页 04 第 2 条的摘要只剩四个字。
+    """
+    from collector.render import _first_sentence
+
+    assert (_first_sentence("Claude Code v2.1.328 发布更新，支持多平台自动模式。第二句。")
+            == "Claude Code v2.1.328 发布更新，支持多平台自动模式。")
+    # 英文句点后面跟空白，仍算句末
+    assert _first_sentence("v1.2 发布. 后续内容") == "v1.2 发布."
+    # 没有任何句末标点时原样返回
+    assert _first_sentence("OpenAI 发布 o3 模型") == "OpenAI 发布 o3 模型"

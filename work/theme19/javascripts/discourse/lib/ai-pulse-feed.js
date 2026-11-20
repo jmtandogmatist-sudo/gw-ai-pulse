@@ -32,7 +32,7 @@ const LIMITS = {
 };
 const MAX = {
   brief: 3,
-  picks: 4,
+  picks: 5,
   curated: 40,
   tracking: 20,
   radar: 120,

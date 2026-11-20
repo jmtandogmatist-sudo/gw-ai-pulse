@@ -288,7 +288,7 @@ def fetch_sitemap(src: dict) -> list[Candidate]:
 
     urls = _sm.load_sitemap(src["url"], timeout=int(src.get("timeout_seconds", 30)))
     pat = _re.compile(src["url_pattern"]) if src.get("url_pattern") else None
-    limit = int(src.get("max_items", 30))
+    limit = int(src.get("max_items") or 120)   # 与 _apply_cap 同口径；被截断由 _apply_cap 记日志
     out = []
     for loc, lastmod in urls:
         if pat and not pat.search(loc):
@@ -387,6 +387,25 @@ def fetch(src: dict, discourse_base: str = "") -> list[Candidate]:
     return apply_filters(items, src)
 
 
+# 2026-11-20：截断不再静默。审计发现 36 个启用非 page 源里 31 个没配 max_items，
+# 全被 `out[: src.get("max_items", 30)]` 砍到 30 条——arXiv 订阅窗口因此只有 2.3 小时，
+# 一篇符合条件的论文永远进不了候选池，而配置里写 max_results=60 也没用。
+# 现在：默认上限抬高到 120，被截断时**打日志 + 记进 TRUNCATIONS**，由 RoundReport 带出来。
+# 需要更宽的源（arXiv 600 条）显式配 max_items。
+TRUNCATIONS: dict[str, int] = {}
+
+
+def _apply_cap(items: list[Candidate], src: dict) -> list[Candidate]:
+    cap = int(src.get("max_items") or 120)
+    if len(items) <= cap:
+        return items
+    dropped = len(items) - cap
+    TRUNCATIONS[src["name"]] = dropped
+    log.warning("%s：抓到 %d 条，按 max_items=%d 截断，丢弃 %d 条（配置里写更大的 max_items 可放开）",
+                src["name"], len(items), cap, dropped)
+    return items[:cap]
+
+
 def apply_filters(items: list[Candidate], src: dict) -> list[Candidate]:
     if src.get("keywords") and src["kind"] not in SPECIAL_KINDS:
         from .special import match_keywords
@@ -405,4 +424,4 @@ def apply_filters(items: list[Candidate], src: dict) -> list[Candidate]:
         if exc and any(k in text for k in exc):
             continue
         out.append(c)
-    return out[: src.get("max_items", 30)]
+    return _apply_cap(out, src)

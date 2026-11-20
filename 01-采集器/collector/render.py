@@ -690,11 +690,14 @@ def mainline_text(signals: list[Signal], now: datetime | None = None,
     return text
 
 
-# ---------- 01「今日值得看」 ----------
+# ---------- 04「今日值得看」 ----------
 # 原先是日报从「工具与做法」板块挑 4 条可落地的（GitHub 项目、实操方法）。
 # 采集器用 domain + topics 还原同一语义。
-
-PICKS_MAX = 4
+#
+# 2026-11-20：条数 4 → 5。04 与 01 去重之后，可上手候选池仍稳定有 20+ 条
+# （实测池 88 条信号、其中 27 条 _is_tool_like），四格装不下当天值得看的量；
+# 主题组件的 .ap-picks 是垂直列表（CSS 没有固定列数），第 5 条不需要改前端。
+PICKS_MAX = 5
 PICK_LIMIT = 120
 
 

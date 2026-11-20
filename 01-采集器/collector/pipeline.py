@@ -21,7 +21,7 @@ from .render import (BRIEF_MAX, brief_item, brief_signals, energy_items, focus_l
                      picks_excluding, public_topic_body, public_topic_tags,
                      public_topic_title, radar_items, radar_rank, read_feed,
                      topic_body, topic_body_focus, topic_tags, write_feed)
-from .sources.fetchers import CST, fetch
+from .sources.fetchers import CST, TRUNCATIONS, fetch
 from .tagger import tag_candidates, zh_chars
 from .watchdog import RoundTimeout, arm as arm_watchdog, clear as clear_watchdog
 
@@ -37,6 +37,9 @@ class RoundReport:
     # 2026-11-19：登记了但本轮没参与抓取的信源 → 原因（disabled / page / module / schedule=xxx）。
     # modules 只能说明「跑了什么」，这张表才能说明「什么没跑」。
     skipped_sources: dict = field(default_factory=dict)
+    # 2026-11-20 审计：被 max_items 截断的信源 → 丢弃条数。原来截断是静默的，
+    # 「抓到 30 条」既可能是这个源只有 30 条，也可能是 300 条被砍成 30 条。
+    truncated_sources: dict = field(default_factory=dict)
     candidates: int = 0
     duplicates: int = 0
     screened_out: int = 0   # 超 72h 窗口 / 被屏蔽域名 / relevance 低于门槛，三者合计
@@ -47,6 +50,12 @@ class RoundReport:
     # 白名单补判救回来的条数（2026-11-19）：第一遍给 keep=false 的一手来源，
     # 用 FORCE_KEEP_RULE 再问一次后保留的条目数。
     keep_bypassed: int = 0
+    # 2026-11-20：走「论文判据」的条数（见 tagger.RESEARCH_RULE）。
+    # 单独记数，是为了能回答「论文通道到底判了几条、留了几条」——
+    # 否则它混在 keep_bypassed 里，事后分不清是放宽门禁还是换了判据。
+    research_judged: int = 0
+    research_kept: int = 0
+    paper_posted: int = 0
     # 今日焦点（2026-11-19）：本轮是否出了一篇焦点长文，以及没出/降级的原因。
     focus_posted: int = 0
     focus_chars: int = 0
@@ -143,6 +152,8 @@ def run_round(cfg: Config, forum, llm, store, alerter, modules: list[str] | None
             try:
                 got = fetch(src, s["discourse"]["base_url"])
                 rep.fetched[src["name"]] = len(got)
+                if src["name"] in TRUNCATIONS:
+                    rep.truncated_sources[src["name"]] = TRUNCATIONS.pop(src["name"])
                 cands.extend(got)
                 store.mark_source(src["name"], ok=True)
             except Exception as e:  # noqa: BLE001 —— 单个信源失败只记录
@@ -238,7 +249,27 @@ def run_round(cfg: Config, forum, llm, store, alerter, modules: list[str] | None
                      len(pf_would), before, len(fresh))
 
         # 4. 打标签与摘要
-        results = tag_candidates(fresh, cfg, llm) if fresh else []
+        # 2026-11-20：研究类信源（tier=research，目前是 arXiv）走独立判据。
+        # 论文标题是方法名、摘要讲机制，「与集团 9 个问题是否相关」这套判据等于全丢
+        # （历史 26/26 判 keep=false，而二手媒体把同一篇写成「成功率提升 8 倍」就进了首页）。
+        # 分成两次调用是为了不混批：一批里既有新闻又有论文时，模型只能按一套判据判。
+        if fresh:
+            res_idx = [i for i, c in enumerate(fresh) if c.source_tier == "research"]
+            gen_idx = [i for i, c in enumerate(fresh) if c.source_tier != "research"]
+            results = [None] * len(fresh)  # type: ignore[list-item]
+            if gen_idx:
+                for i, r in zip(gen_idx, tag_candidates([fresh[i] for i in gen_idx], cfg, llm)):
+                    results[i] = r
+            if res_idx:
+                rep.research_judged = len(res_idx)
+                paper_results = tag_candidates([fresh[i] for i in res_idx], cfg, llm, research=True)
+                for i, r in zip(res_idx, paper_results):
+                    results[i] = r
+                rep.research_kept = sum(1 for r in paper_results if r.keep and not r.error)
+                log.info("论文通道：%d 条按「方法/可复用性」判定，保留 %d 条",
+                         rep.research_judged, rep.research_kept)
+        else:
+            results = []
 
         # gw-ai-pulse（2026-11-19）来源白名单补判（方案 C 最小版）：
         # keep 是唯一实质闸门，而它的判据是「与集团问题是否相关」——
@@ -273,16 +304,22 @@ def run_round(cfg: Config, forum, llm, store, alerter, modules: list[str] | None
                 log.warning("前置过滤若生效会误伤 %d 条：%s", len(kept_pf),
                             "；".join(rep.prefilter_misses))
 
-        # 台账：把本轮确实拿到结论的候选记下来（keep 或 keep=false 都算结论）。
-        # 有 error 的一律不记——模型故障该重试；校验不过（pending）也该下轮重判一次，
-        # 否则一次模型抽风就会让这条目在 72 小时内彻底消失。
+        # 台账：只记「判掉了」的候选，不记「留下了」的。
+        #
+        # 2026-11-20 审计发现的原实现是错的：keep=true 也照记，于是
+        # 「过了模型但没过门槛（低于相关度）」「超出每轮发帖上限」「429 剩下没发」
+        # 这三类条目被记成已判，下一轮按重复跳过，72 小时窗口一过就彻底消失——
+        # 每轮 12–23 条一手内容就这么被永久关在门外，而唯一的提示是一句
+        # 「下一轮会再次出现」的注释。现在注释与行为一致：
+        #   - keep=false：结论明确，窗口期内不再重判（省模型预算）；
+        #   - keep=true ：还没落地，下轮照常重来（发出去之后由 url_alias 去重兜住）；
+        #   - 任何 error：一律不记（模型故障、校验不过都该重试）。
         if results:
             verdict_time = t0.isoformat(timespec="seconds")
             store.mark_judged([
-                (signal_id(c.url), verdict_time, 1 if (r.keep and not r.error) else 0,
-                 "" if not r.error else f"err:{r.error[:60]}")
+                (signal_id(c.url), verdict_time, 0, "keep=false")
                 for c, r in zip(fresh, results)
-                if not r.error          # 任何错误都不记：模型故障和校验不过下轮都该重试
+                if not r.error and not r.keep
             ])
 
         rep.llm_calls = getattr(llm, "calls", 0)
@@ -391,8 +428,19 @@ def run_round(cfg: Config, forum, llm, store, alerter, modules: list[str] | None
             queue = kept
 
         cap = rnd.get("max_posts_per_round", 30)
-        rep.over_cap = max(0, len(queue) - cap)
-        queue = queue[:cap]
+        # 2026-11-20：论文通道单独设配额。
+        # 换判据后论文条数从 0 变成 176 条/轮（实测），如果和新闻抢同一个 30 条名额，
+        # 首页会直接变成 arXiv 速递（今天试跑 30 条里 24 条是论文）。
+        # 论文是「稳态供给」，新闻是「当天事件」，按比例分配：论文最多占 1/3。
+        paper_cap = int(rnd.get("max_paper_posts_per_round", cap // 3))
+        def _is_paper(s) -> bool:
+            return bool(s.sources) and s.sources[0].tier == "research"
+        papers = [x for x in queue if _is_paper(x)]
+        others = [x for x in queue if not _is_paper(x)]
+        kept_papers = papers[:paper_cap]
+        rep.over_cap = max(0, len(queue) - cap) + max(0, len(papers) - len(kept_papers))
+        rep.paper_posted = len(kept_papers)
+        queue = sorted(others + kept_papers, key=lambda x: -x.relevance)[:cap]
         log.info("④ 过门槛待发帖 %d 条（低于相关度 %d、标题重复 %d、模型故障 %d、待人工 %d），用时 %.0fs",
                  len(queue), rep.below_min_relevance, rep.title_duplicates, rep.model_failed,
                  rep.pending, time.monotonic() - mono)

@@ -56,7 +56,8 @@ def test_picks_dedupe_by_url_across_signals():
     assert [p["url"] for p in picks] == ["https://github.com/anthropics/cc"]
 
 
-def test_picks_still_capped_at_four():
-    sigs = [mk(f"工具框架 v{i} 发布", f"https://example.com/{i}") for i in range(7)]
+def test_picks_capped_at_five_after_exclusion():
+    """2026-11-20：条数 4 → 5；排除掉 01/02 用过的之后仍按上限截断。"""
+    sigs = [mk(f"工具框架 v{i} 发布", f"https://example.com/{i}") for i in range(9)]
     picks = picks_excluding(sigs, exclude=sigs[:2], now=FIXED_NOW)
-    assert len(picks) == 4
+    assert len(picks) == 5

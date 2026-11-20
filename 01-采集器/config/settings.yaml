@@ -215,7 +215,7 @@ feed:
   # gw-ai-pulse（2026-11-19）：同源限额。IT之家一轮 27 条、一天 3 轮，不限额时
   # 01 的三条、02 的焦点全是它。设 0 = 回退旧行为（不限）。
   brief_max_per_source: 1                # 01 今天发生了什么 / 02 今日焦点 / 今日主线
-  picks_max_per_source: 2                # 01 今日值得看（防止一家插件仓库刷满四格）
+  picks_max_per_source: 2                # 04 今日值得看（防止一家插件仓库刷满整块；按站点分桶）
   summary_limit: 320                     # 每条 summary 的字符上限（与前端 LIMITS.summary 一致）
   cred_format: code                      # g / y / r，与首页组件 v0.2 的 ai-pulse-feed.js 一致；不要改
   sample_file: tests/fixtures/feed_632.md   # 试运行时模拟底座帖的初始内容

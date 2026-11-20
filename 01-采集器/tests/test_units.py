@@ -395,3 +395,21 @@ def test_judged_ledger_prevents_rejudging(tmp_path):
     st.mark_judged([("u-drop", "2026-11-20T12:00:00+08:00", 1, "")])
     assert len(st.judged_recent("2026-11-19T08:00:00+08:00")) == 2
 
+
+
+def test_research_prompt_uses_paper_criteria(cfg):
+    """2026-11-20：论文走独立判据（tagger.RESEARCH_RULE），不混用业务相关性判据。
+
+    背景：arXiv 条目历史上 26/26 判 keep=false，而二手媒体把同一篇论文写成
+    「智能体任务成功率提升 8 倍」就进了首页。这里守住「论文通道的判据确实换了一套」。
+    """
+    from collector.tagger import build_system_prompt
+    plain = build_system_prompt(cfg)
+    paper = build_system_prompt(cfg, research=True)
+    assert "研究论文" in paper and "研究论文" not in plain
+    assert "可复用" in paper
+    assert len(paper) > len(plain)
+    # 两条通道都在的还有白名单补判，三者不能互相污染
+    forced = build_system_prompt(cfg, force_keep=True)
+    assert "研究论文" not in forced
+

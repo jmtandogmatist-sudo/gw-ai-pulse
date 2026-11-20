@@ -98,8 +98,14 @@ def parse_hf_models(src: dict, data: list) -> list[Candidate]:
         if not mid:
             continue
         heat = m.get("trendingScore") if m.get("trendingScore") is not None else m.get("likes")
+        # 2026-11-20：热门模型列表没有发布日期，原实现不设 published_at →
+        # 20/20 全撞上 undated_policy=drop，整条通道 100% 丢弃、历史累计 0 条信号，
+        # 报告里只留一个无归因的 undated_dropped 总数（审计 A1）。
+        # 与上面 github_trending 的修法保持一致：日期取采集时刻，语义是「此刻在热榜上」，
+        # 不伪造模型发布时间。
         out.append(_cand(src, mid + (f"（{m['pipeline_tag']}）" if m.get("pipeline_tag") else ""),
-                         f"https://huggingface.co/{mid}", heat=heat))
+                         f"https://huggingface.co/{mid}", heat=heat,
+                         published=datetime.now(CST).isoformat(timespec="seconds")))
     return out
 
 

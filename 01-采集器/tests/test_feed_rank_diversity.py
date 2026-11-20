@@ -52,15 +52,19 @@ def test_diverse_limit_zero_means_unlimited():
 
 
 def test_picks_caps_two_per_source():
-    """今日值得看：一家的插件仓库不能刷满四格（实测 4 条里 3 条同一个 GitHub 主题）。"""
+    """今日值得看：一家的插件仓库不能刷满整块（实测有一轮 3 条同一个 GitHub 主题）。
+
+    2026-11-20 条数 4 → 5（PICKS_MAX），断言跟着改成五格。
+    """
     sigs = [mk(f"某插件{i}", source="DSH 插件生态", domain="工具做法") for i in range(4)]
     sigs += [mk("NGINX 五个严重漏洞", source="Infosecurity", domain="工具做法"),
              mk("某框架发布新版本", source="InfoQ", domain="工具做法"),
              mk("某开源工具开源", source="开源中国", domain="工具做法")]
     got = pick_items(sigs, per_source=2, now=FIXED_NOW)
     hosts = [g["url"].split("/")[2] for g in got]
+    assert len(got) == 5                                 # 五格
     assert hosts.count("DSH 插件生态.example") == 2      # 限到 2 条
-    assert len(set(hosts)) == 3                          # 四格来自三个信源
+    assert len(set(hosts)) == 4                          # 五格来自四个信源
 
 
 def test_same_host_different_source_names_share_one_quota():

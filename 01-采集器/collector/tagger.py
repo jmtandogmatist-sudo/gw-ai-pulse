@@ -74,6 +74,34 @@ SYSTEM_PROMPT = """你是金风科技集团 AI 情报站的信号编辑。你会
 # gw-ai-pulse（2026-11-19）：来源白名单的补判提示词（方案 C 最小版）。
 # 第一遍判定被 keep=false 的一手来源条目，用这段规则再问一次：模型只需补字段，
 # 不再重新权衡「要不要」。是不是真该保留，由 keep_bypass.sources 这份人工白名单负责。
+# gw-ai-pulse（2026-11-20）：研究类信源（tier=research，目前是 arXiv）的专用判据。
+#
+# 起因：用户问「arXiv 论文为什么进不来」。修好取数窗口后，真正的问题浮出来了——
+# keep 的判据是「与集团 9 个问题是否相关」，这套判据天然不适合论文：
+# 论文标题是方法名（"Harnesses That Improve Themselves"），摘要讲机制不讲业务，
+# 于是历史 26/26 全判 keep=false；而二手媒体把同一篇论文写成人话（"智能体任务成功率提升8倍"）
+# 反而进了首页。一手进不来、二手占版面。
+#
+# 这里不是放宽门禁，而是**换一条判据**：论文按「方法是否有新意 / 是否给出可复用件 /
+# 是否落在我们关心的技术方向」判，仍然是 keep=false 为主（大部分论文与我们无关），
+# 只是让「有方法、有数据、有工具」的那些进得来。
+RESEARCH_RULE = """
+
+**本批是研究论文（arXiv 等预印本），不要用「对金风业务是否相关」这套判据**，改用下面三条：
+1. 方法是否有实质新意（新架构、新训练/推理方法、新评测方式、新的失败分析），而不是增量调参、又一篇 benchmark 刷分；
+2. 是否给出**可复用件**：公开数据集、开源实现、可迁移的做法、明确的失效边界；
+3. 是否落在这些方向：Agent 与工具调用、检索增强、上下文与记忆、推理与规划、时序预测、
+   工业设备运检/故障诊断、功率预测与调度、模型评测与安全。
+三条至少命中一条才 keep=true；纯理论、纯数学、与上述方向无关的领域应用，keep=false。
+
+这些条目上：
+- domain 填「前沿研究」；
+- relevance：3=方法可直接借鉴到我们的方向；2=同方向的重要进展；1=相邻方向值得知道；0=无关；
+- title 写清「做了什么方法 + 得到什么结论」，仍要中文、仍要 {min_title}–40 字，
+  不要用论文原名直译（"自我改进的 Harness：一个统一框架"），要写成一句人话；
+- summary 写清三件事：解决什么问题、怎么做的、结论是什么（有数字就写数字）；
+- us 写「这个方法/数据/工具能怎么用」，同样按公开可读写，主语不写「集团」「金风」。"""
+
 FORCE_KEEP_RULE = """
 
 **本批是来源白名单补判**：下面每一条都来自集团指定的一手来源（官方发布或监管原文），
@@ -161,11 +189,14 @@ class LLMClient:
             return r.json()["choices"][0]["message"]["content"]
 
 
-def build_system_prompt(cfg: Config, force_keep: bool = False) -> str:
+def build_system_prompt(cfg: Config, force_keep: bool = False, research: bool = False) -> str:
     qs = "\n".join(f"{q['id']} {q['text']}" for q in cfg.signal_questions)
+    min_title = cfg.settings["discourse"].get("min_title_chars", 15)
     base = SYSTEM_PROMPT.format(questions=qs, domains="、".join(cfg.domains),
                                 topics="、".join(cfg.topic_tags) or "（暂无）",
-                                min_title=cfg.settings["discourse"].get("min_title_chars", 15))
+                                min_title=min_title)
+    if research:
+        base += RESEARCH_RULE.format(min_title=min_title)
     return base + (FORCE_KEEP_RULE if force_keep else "")
 
 
@@ -294,7 +325,7 @@ def _tag_batch(batch: list[Candidate], system: str, cfg: Config, client) -> dict
 
 
 def tag_candidates(cands: list[Candidate], cfg: Config, client,
-                   force_keep: bool = False) -> list[TagResult]:
+                   force_keep: bool = False, research: bool = False) -> list[TagResult]:
     """返回与 cands 一一对应的结果。整批调用失败时，该批每条都标 error。
 
     模型的已知失败模式（2026-11-06 实测）：一个批次里**静默漏掉若干条**，只返回其余部分，
@@ -305,7 +336,7 @@ def tag_candidates(cands: list[Candidate], cfg: Config, client,
     仍拿不到才落到「模型漏掉了这一条」。这样既不牺牲正常批量吞吐，又能救回绝大多数漏条。
     """
     size = cfg.settings["llm"].get("batch_size", 8)
-    system = build_system_prompt(cfg, force_keep=force_keep)
+    system = build_system_prompt(cfg, force_keep=force_keep, research=research)
     results: list[TagResult] = []
     for i in range(0, len(cands), size):
         batch = cands[i:i + size]

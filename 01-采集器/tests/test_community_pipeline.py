@@ -37,6 +37,7 @@ def _seed_community(forum):
 def test_round_writes_community_block_from_forum(cfg, forum, llm, store, alerter):
     cfg.settings["feed"]["enabled"] = True
     cfg.settings["community"]["enabled"] = True
+    cfg.settings["community"]["write_to_feed"] = True
     _seed_community(forum)
 
     rep = run_round(cfg, forum, llm, store, alerter, now=NOW)
@@ -60,6 +61,7 @@ def test_round_writes_community_block_from_forum(cfg, forum, llm, store, alerter
 def test_round_writes_question_from_community(cfg, forum, llm, store, alerter):
     cfg.settings["feed"]["enabled"] = True
     cfg.settings["community"]["enabled"] = True
+    cfg.settings["community"]["write_to_feed"] = True
     _seed_community(forum)
     run_round(cfg, forum, llm, store, alerter, now=NOW)
     feed, _ = read_feed(forum.posts[1]["raw"])
@@ -115,6 +117,7 @@ def test_radar_guard_not_confused_by_community_block(cfg, forum, llm, store, ale
     """
     cfg.settings["feed"]["enabled"] = True
     cfg.settings["community"]["enabled"] = True
+    cfg.settings["community"]["write_to_feed"] = True
     _seed_community(forum)
     rep = run_round(cfg, forum, llm, store, alerter, now=NOW)
     assert rep.feed_updated, rep.feed_error

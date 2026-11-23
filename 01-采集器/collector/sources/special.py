@@ -149,6 +149,31 @@ def fetch_github_topic(src: dict) -> list[Candidate]:
     return out
 
 
+def fetch_github_org(src: dict) -> list[Candidate]:
+    """组织最近推送的开源仓库：/orgs/{org}/repos?sort=pushed&direction=desc。
+
+    厂商常提前数周建好私有仓，正式开源当天才公开并推送代码，因此按 pushed_at 抓取；
+    URL 去重会自动保证每个开源仓库只入库发帖一次，不会因后续零碎提交刷屏。
+    """
+    org = src["org"]
+    per_page = int(src.get("max_items", 10))
+    url = f"https://api.github.com/orgs/{org}/repos?sort=pushed&direction=desc&per_page={per_page}"
+    data = json.loads(http_get(url))
+    out = []
+    for it in (data if isinstance(data, list) else [])[:per_page]:
+        if it.get("fork") or it.get("archived"):
+            continue
+        desc = re.sub(r"\s+", " ", it.get("description") or "")[:240]
+        full = str(it.get("full_name") or f"{org}/{it.get('name', '?')}")
+        stars = it.get("stargazers_count")
+        title = f"{full}：{desc}" if desc else f"{full} 开源仓库更新"
+        excerpt = f"{desc} · {stars} stars" if desc else f"官方开源仓库 {full}（{stars} stars），最近推送 {it.get('pushed_at') or '未知'}"
+        out.append(_cand(src, title[:200], it.get("html_url") or "",
+                         published=it.get("pushed_at") or it.get("created_at"),
+                         heat=stars, excerpt=excerpt))
+    return [c for c in out if c.url]
+
+
 def fetch_special(src: dict) -> list[Candidate]:
     kind = src["kind"]
     if kind == "github_release":
@@ -157,6 +182,8 @@ def fetch_special(src: dict) -> list[Candidate]:
         items = fetch_repo_activity(src)
     elif kind == "github_topic":
         items = fetch_github_topic(src)
+    elif kind == "github_org":
+        items = fetch_github_org(src)
     elif kind == "hn_top":
         items = parse_hn(src, json.loads(http_get(src["url"])))
     elif kind == "github_trending":

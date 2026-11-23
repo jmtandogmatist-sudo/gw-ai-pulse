@@ -85,8 +85,9 @@ def test_disabled_restores_old_behaviour(cfg, forum, store, alerter):
 
 
 def test_rescued_item_still_must_clear_relevance_gate(cfg, forum, store, alerter):
-    """补判只放宽 keep，不放宽 relevance：救回来但只是行业背景的，照样不发帖。"""
+    """补判只放宽 keep，不放宽 relevance：救回来但只是行业背景的，照样不发帖（关闭低水位保底时）。"""
     cfg.settings["keep_bypass"] = {"enabled": True, "sources": ["厂商博客"]}
+    cfg.settings["round"]["low_supply_today_floor"] = 0
     llm = DropFirstPassLLM(cfg, forced_relevance=1)
     rep = run_round(cfg, forum, llm, store, alerter, now=NOW)
 

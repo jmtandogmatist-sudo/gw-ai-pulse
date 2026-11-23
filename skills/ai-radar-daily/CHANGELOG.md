@@ -279,7 +279,7 @@
 - 规则矩阵 R21；SKILL.md 阶段 6B、确认口径与外部动作顺序（论坛发布 → 首页 → 构包 → 飞书 → 知识库）。
 
 **修复**
-- `tests/test_run.py` 原写死 `/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily`：在其他目录测试新版本时实际导入的是已安装的旧版 `run.py`，单独运行该文件还会因找不到模块报错。改为按测试文件定位。
+- `tests/test_run.py` 原写死 `/Users/sr_jm/gw_llm_ai_pulse/skills/ai-radar-daily`：在其他目录测试新版本时实际导入的是已安装的旧版 `run.py`，单独运行该文件还会因找不到模块报错。改为按测试文件定位。
 
 **验证**：新增 `tests/test_homepage_feed.py` 22 项，全量 248 项通过；用论坛实际发布的 11-02 正文（与论坛原文 SHA-256 一致）端到端生成首页数据，6 / 2 / 19 条与正文一致。
 

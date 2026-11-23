@@ -1,26 +1,31 @@
 """一轮采集：抓取 → 去重 → 初筛 → 打标签与摘要 → 校验 → 发帖 → 读回 → 刷新底座帖 → 报告。"""
 from __future__ import annotations
 
+import contextlib
+import fcntl
 import json
 import logging
 import re
+import statistics
 import time
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from .config import Config, select_sources, skipped_sources
 from .credibility import compute_cred
 from .dedup import find_duplicate, is_blocked, normalize_url, signal_id
-from . import focus
+from . import enrich, focus
 from .discourse import DiscourseError
 from .models import Candidate, Signal, SourceRef
 from .pubdate import fill_published_at
-from .render import (BRIEF_MAX, brief_item, brief_signals, energy_items, focus_lead_item,
-                     focus_topic_tags, lead_item, mainline_text,
+from .render import (BRIEF_MAX, _limit_key, brief_item, brief_signals, energy_items, focus_lead_item,
+                     focus_topic_tags, is_research, lead_item, mainline_text,
                      pick_energy, today_label,
                      picks_excluding, public_topic_body, public_topic_tags,
                      public_topic_title, radar_items, radar_rank, read_feed,
-                     topic_body, topic_body_focus, topic_tags, write_feed)
+                     select_radar_signals, topic_body, topic_body_focus, topic_tags, write_feed)
 from .sources.fetchers import CST, TRUNCATIONS, fetch
 from .tagger import TagResult, tag_candidates, zh_chars
 from .watchdog import RoundTimeout, arm as arm_watchdog, clear as clear_watchdog
@@ -63,6 +68,9 @@ class RoundReport:
     focus_claims: int = 0
     focus_degraded: int = 0
     focus_skipped: str = ""
+    # 普通信号结构化摘要精炼（2026-11-20）：基于原文生成的 ~300 字结构化摘要条数 / 降级条数
+    enriched: int = 0
+    enrich_skipped: int = 0
     # 过了模型那关、但 relevance 低于 min_relevance_to_post 的条数。
     # 单独计数是为了能回答「相关度闸门到底挡掉了多少」——它现在混在 screened_out 里，
     # 而 screened_out 同时包含超窗口和被屏蔽域名，看不出闸门本身的分量。
@@ -92,6 +100,7 @@ class RoundReport:
     query_error: str = ""        # 检索词库失败原因（不参与「所有信源失败」判定，见审计 B7）
     feed_updated: bool = False
     feed_error: str = ""
+    feed_metrics: dict = field(default_factory=dict)  # 2026-11-23：底座帖新鲜度与信源健康 SLA 指标
     # 长期失败的信源（连续失败 ≥ source_fail_alert_after）：名 → {fails, error}
     # 与 failed_sources 的区别：那个只记本轮，这个记「已经烂了很久但没人处理」。
     chronic_sources: dict = field(default_factory=dict)
@@ -422,8 +431,52 @@ def run_round(cfg: Config, forum, llm, store, alerter, modules: list[str] | None
 
         # 6. 校验门槛与上限
         min_rel = rnd.get("min_relevance_to_post", 1)
-        queue = sorted((x for x in new_by_key.values() if x.relevance >= min_rel),
+        all_new = list(new_by_key.values())
+        queue = sorted((x for x in all_new if x.relevance >= min_rel),
                        key=lambda x: (-x.relevance, x.title))
+        # 2026-11-23：当日低水位保底（防上午/周末出现「今日信号 = 0」导致雷达全展示昨天数据）。
+        # 统计今天已入库 + 本轮已过门槛的今日信号数；若仍低于 low_supply_today_floor，
+        # 从本轮「今日发布 + keep=true + relevance == min_rel - 1（通常为 1）」的非论文候选中，
+        # 按一手优先 + 单站点限额补足缺口，保证首页信号雷达始终有当日新鲜内容。
+        today_floor = int(rnd.get("low_supply_today_floor", 0) or 0)
+        if today_floor > 0 and min_rel > 1:
+            today_iso = t0.date().isoformat()
+            existing_today = sum(
+                1 for s in store.recent_signals(f"{today_iso}T00:00:00+08:00")
+                if s.topic_id and ((s.published_at or s.event_date or "")[:10] == today_iso)
+            )
+            queued_today = sum(
+                1 for s in queue
+                if (s.published_at or s.event_date or "")[:10] == today_iso
+            )
+            deficit = max(0, today_floor - existing_today - queued_today)
+            if deficit > 0:
+                promoted_pool = [
+                    x for x in all_new
+                    if x.relevance == min_rel - 1
+                    and not is_research(x)
+                    and ((x.published_at or x.event_date or "")[:10] == today_iso)
+                ]
+                promoted_pool.sort(
+                    key=lambda x: (
+                        0 if (x.sources and x.sources[0].tier in ("official", "authority")) else 1,
+                        radar_rank(x, t0),
+                    )
+                )
+                host_cnt: Counter = Counter()
+                promoted: list[Signal] = []
+                for x in promoted_pool:
+                    if len(promoted) >= deficit:
+                        break
+                    h = _limit_key(x)
+                    if host_cnt[h] >= 2:
+                        continue
+                    host_cnt[h] += 1
+                    promoted.append(x)
+                if promoted:
+                    queue.extend(promoted)
+                    log.info("当日低水位保底：今日已有 %d 条（门槛 %d），提拔 %d 条当日 rel=%d 信号补位",
+                             existing_today + queued_today, today_floor, len(promoted), min_rel - 1)
         rep.below_min_relevance = len(new_by_key) - len(queue)
         rep.screened_out += rep.below_min_relevance
 
@@ -459,19 +512,30 @@ def run_round(cfg: Config, forum, llm, store, alerter, modules: list[str] | None
             queue = kept
 
         cap = rnd.get("max_posts_per_round", 30)
-        # 2026-11-20：论文通道单独设配额。
-        # 换判据后论文条数从 0 变成 176 条/轮（实测），如果和新闻抢同一个 30 条名额，
-        # 首页会直接变成 arXiv 速递（今天试跑 30 条里 24 条是论文）。
-        # 论文是「稳态供给」，新闻是「当天事件」，按比例分配：论文最多占 1/3。
+        # 2026-11-20：论文通道单独设配额 + 新鲜度/相关度闸门，并按 radar_rank 排序。
+        # 换判据后论文留存量暴涨，此前按 (-relevance, title) 取 10 条/轮导致大量 11-17/18 旧论文
+        # 占满发帖额度、刚发出来就被首页 32K 预算截断（发帖漏斗与首页展示脱节）。
         paper_cap = int(rnd.get("max_paper_posts_per_round", cap // 3))
+        paper_min_rel = int(rnd.get("paper_min_relevance", min_rel))
+        paper_win_h = int(rnd.get("paper_window_hours", 0) or 0)
+        paper_since = ((t0 - timedelta(hours=paper_win_h)).isoformat(timespec="seconds")
+                       if paper_win_h > 0 else "")
         def _is_paper(s) -> bool:
             return bool(s.sources) and s.sources[0].tier == "research"
         papers = [x for x in queue if _is_paper(x)]
         others = [x for x in queue if not _is_paper(x)]
-        kept_papers = papers[:paper_cap]
-        rep.over_cap = max(0, len(queue) - cap) + max(0, len(papers) - len(kept_papers))
+        eligible_papers = [
+            x for x in papers
+            if x.relevance >= paper_min_rel
+            and (not paper_since or _in_publish_window(x, paper_since))
+        ]
+        eligible_papers.sort(key=lambda x: radar_rank(x, t0))
+        kept_papers = eligible_papers[:paper_cap]
+        dropped_papers = len(papers) - len(kept_papers)
+        merged_queue = sorted(others + kept_papers, key=lambda x: (-x.relevance, radar_rank(x, t0)))
+        rep.over_cap = max(0, len(merged_queue) - cap) + dropped_papers
         rep.paper_posted = len(kept_papers)
-        queue = sorted(others + kept_papers, key=lambda x: -x.relevance)[:cap]
+        queue = merged_queue[:cap]
         log.info("④ 过门槛待发帖 %d 条（低于相关度 %d、标题重复 %d、模型故障 %d、待人工 %d），用时 %.0fs",
                  len(queue), rep.below_min_relevance, rep.title_duplicates, rep.model_failed,
                  rep.pending, time.monotonic() - mono)
@@ -479,9 +543,20 @@ def run_round(cfg: Config, forum, llm, store, alerter, modules: list[str] | None
         # 6d. 今日焦点（2026-11-19「焦点单独成篇」）：本轮最多一篇，选一条做长文。
         #     放在发帖之前：成稿成功那条信号会切到长文模板；失败则本轮不出焦点，
         #     首页 02 沿用上一轮的焦点（settings.focus 规则 a）。
+        #     2026-11-20：先查首页当前正在展示的焦点（与 update_feed 同窗同序），
+        #     本轮候选若在首页排序中打不过它，就不白花抓正文与 LLM 成稿成本。
         if queue and (cfg.settings.get("focus") or {}).get("enabled"):
+            f_win = int((s.get("feed") or {}).get("window_hours", 72))
+            f_since = (t0 - timedelta(hours=f_win)).isoformat(timespec="seconds")
+            live_sigs = [x for x in store.recent_signals(f_since)
+                         if x.topic_id and _in_publish_window(x, f_since)]
+            live_sigs.sort(key=lambda x: radar_rank(x, t0))
+            current_focus = next(
+                (x for x in live_sigs if getattr(x, "focus", False) and not is_research(x)),
+                None,
+            )
             try:
-                fou = focus.build(queue, cfg, llm, store, t0)
+                fou = focus.build(queue, cfg, llm, store, t0, current_focus=current_focus)
             except Exception as e:                  # noqa: BLE001
                 # 焦点是附加步骤：它崩了也只能少一篇长文，不能少一轮发帖
                 log.exception("焦点步骤异常，已跳过（本轮按原样发帖）：%s", e)
@@ -499,6 +574,14 @@ def run_round(cfg: Config, forum, llm, store, alerter, modules: list[str] | None
             elif fou is not None and fou.reason:
                 log.info("⑥ 本轮不出焦点：%s", fou.reason)
 
+        # 6e. 普通信号结构化摘要精炼（2026-11-20）：
+        #     只对过门槛待发帖的非焦点信号抓原文正文，生成 ~300 字结构化摘要；
+        #     抓不到正文或校验不通过时自动降级回原简短摘要，不阻断发帖。
+        if queue and (cfg.settings.get("structured_summary") or {}).get("enabled"):
+            rep.enriched, rep.enrich_skipped = enrich.enrich_signals(queue, cfg, llm, store)
+            log.info("⑥b 结构化摘要完成：精炼 %d 条、降级 %d 条，用时 %.0fs",
+                     rep.enriched, rep.enrich_skipped, time.monotonic() - mono)
+
         # 7. 发帖与读回
         cat_id = s["discourse"]["signal_category_id"]
         for sig in queue:
@@ -510,7 +593,19 @@ def run_round(cfg: Config, forum, llm, store, alerter, modules: list[str] | None
                 res = forum.create_topic(sig.title, raw, cat_id, tags, external_id=sig.signal_id)
             except DiscourseError as e:
                 if e.status == 422 and "external" in e.message.lower():
-                    store.save_signal(sig, url_ids.get(sig.signal_id, [sig.signal_id]))  # 论坛已有，记下即可
+                    # 2026-11-23：论坛已有该 external_id 时回查真实 topic_id/post_id 再落库，
+                    # 防止保存成 topic_id=None 导致永久被 url_alias 去重且永不进 632 雷达。
+                    if not sig.topic_id and hasattr(forum, "topic_by_external_id"):
+                        try:
+                            found = forum.topic_by_external_id(sig.signal_id)
+                            if isinstance(found, dict) and found.get("id"):
+                                sig.topic_id = int(found["id"])
+                                posts = (found.get("post_stream") or {}).get("posts") or []
+                                if posts and posts[0].get("id"):
+                                    sig.post_id = int(posts[0]["id"])
+                        except Exception as ex:  # noqa: BLE001
+                            log.warning("回查已存在话题失败（external_id=%s）：%s", sig.signal_id, ex)
+                    store.save_signal(sig, url_ids.get(sig.signal_id, [sig.signal_id]))
                     rep.duplicates += 1
                     continue
                 if e.status == 429:
@@ -520,15 +615,16 @@ def run_round(cfg: Config, forum, llm, store, alerter, modules: list[str] | None
                 store.add_pending(f"发帖失败：{e}", {"title": sig.title, "url": sig.sources[0].url})
                 continue
             sig.topic_id, sig.post_id = res["topic_id"], res["post_id"]
+            # 2026-11-23：论坛建帖成功后**先落本地库、再读回校验**。
+            # 此前顺序颠倒，读回遇 CloudWAF 连接重置（t/969 实测）会中断进程、留下“论坛有帖本地无账”的孤儿帖。
+            store.save_signal(sig, url_ids.get(sig.signal_id, [sig.signal_id]))
             back = forum.post_raw(sig.post_id)
             back_tags = set(forum.topic(sig.topic_id).get("tags", []))
             if _normalize_post(back) != _normalize_post(raw) or not set(tags) <= back_tags:
-                store.save_signal(sig, url_ids.get(sig.signal_id, [sig.signal_id]))
                 missing = sorted(set(tags) - back_tags)
                 detail = f"缺少标签 {missing}" if missing else "正文与发出的不一致"
                 rep.fatal = f"读回不一致，已停止本轮发帖（话题 {sig.topic_id}，{detail}）"
                 break
-            store.save_signal(sig, url_ids.get(sig.signal_id, [sig.signal_id]))
             rep.posted += 1
             if sig.focus:
                 rep.focus_posted = 1
@@ -595,8 +691,11 @@ def run_round(cfg: Config, forum, llm, store, alerter, modules: list[str] | None
         # 8. 刷新底座帖
         if s["feed"].get("enabled", False) and not rep.fatal:
             try:
-                update_feed(cfg, forum, store, t0, community_posts=community_posts, llm=llm)
+                metrics: dict = {}
+                update_feed(cfg, forum, store, t0, community_posts=community_posts, llm=llm,
+                            metrics_out=metrics)
                 rep.feed_updated = True
+                rep.feed_metrics = metrics
                 log.info("⑦ 底座帖已刷新，用时 %.0fs", time.monotonic() - mono)
             except Exception as e:  # noqa: BLE001
                 rep.feed_error = str(e)[:300]
@@ -663,8 +762,26 @@ def _should_publish_public(sig: Signal, dcfg: dict) -> bool:
 
 
 def _in_publish_window(sig: Signal, since_iso: str) -> bool:
-    """发布日期是否在窗口内。日期未知时放行（由 undated_policy 在入池阶段决定）。"""
-    day = (sig.event_date or "")[:10]
+    """发布时间是否在窗口内。
+
+    2026-11-23：此前只按 event_date[:10] 日期字符串比较，导致 72h 窗口在上午 08:00
+    实际放行到 ~96h（3 天前 02:00 的旧文照常入榜）。现在只要 published_at 带真实时刻
+    （非纯日期补零的 T00:00:00），就按精确时间戳比较；纯日期源（如 listpage 监管官网）
+    退回日期级比较；日期未知时放行（入池阶段已判过）。
+    """
+    pub = (sig.published_at or "").strip()
+    if len(pub) > 10 and "T00:00:00" not in pub:
+        try:
+            dt_pub = datetime.fromisoformat(pub.replace("Z", "+00:00"))
+            dt_since = datetime.fromisoformat(since_iso.replace("Z", "+00:00"))
+            if dt_pub.tzinfo is None:
+                dt_pub = dt_pub.replace(tzinfo=CST)
+            if dt_since.tzinfo is None:
+                dt_since = dt_since.replace(tzinfo=CST)
+            return dt_pub >= dt_since
+        except (TypeError, ValueError):
+            pass
+    day = (sig.event_date or pub)[:10]
     if not day:
         return True
     try:
@@ -673,18 +790,107 @@ def _in_publish_window(sig: Signal, since_iso: str) -> bool:
         return True
 
 
+@contextlib.contextmanager
+def _feed632_lock(cfg: Config):
+    """632 底座帖跨进程写入锁（与 02-深度简报/brief/publisher.py 共用同一锁文件）。"""
+    lock_path = Path(cfg.root) / "state" / "feed632.lock"
+    try:
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        fh = open(lock_path, "w", encoding="utf-8")
+    except OSError:
+        yield
+        return
+    try:
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        yield
+    finally:
+        try:
+            fcntl.flock(fh, fcntl.LOCK_UN)
+        finally:
+            fh.close()
+
+
+def _clashes_with_daily_brief(sig: Signal, feed: dict) -> bool:
+    """判断 02 焦点是否与 01 深度简报主打报道撞题（跨轨防重，2026-11-23）。"""
+    db = feed.get("daily_brief")
+    if not isinstance(db, dict):
+        return False
+    titles = [str(t).strip() for t in (db.get("feature_titles") or []) if str(t).strip()]
+    if not titles:
+        return False
+    # 1. 复用现有标题相似度（门槛 0.42，略宽于同轨去重，因深度简报标题更长更综合）
+    hit, _sim = find_duplicate(sig.title or "", titles, threshold=0.42)
+    if hit is not None:
+        return True
+    # 2. 核心数字 + 实体词双重重叠（如「45% + AI服务器/涨价」这种不同措辞的同一事件）
+    sig_t = (sig.title or "").lower()
+    sig_nums = set(re.findall(r"\d+(?:\.\d+)?%?", sig_t))
+    sig_zh = {sig_t[i:i + 2] for i in range(max(0, len(sig_t) - 1))
+              if all("\u4e00" <= ch <= "\u9fff" for ch in sig_t[i:i + 2])}
+    for dt in titles:
+        dl = dt.lower()
+        d_nums = set(re.findall(r"\d+(?:\.\d+)?%?", dl))
+        d_zh = {dl[i:i + 2] for i in range(max(0, len(dl) - 1))
+                if all("\u4e00" <= ch <= "\u9fff" for ch in dl[i:i + 2])}
+        if (sig_nums & d_nums) and len(sig_zh & d_zh) >= 2:
+            return True
+    return False
+
+
+def _compute_feed_metrics(radar_sigs: list[Signal], picks: list[dict], now: datetime) -> dict:
+    """计算底座帖新鲜度与信源多样性 SLA 指标（2026-11-23）。"""
+    today_iso = now.date().isoformat()
+    ages_h: list[float] = []
+    today_cnt = 0
+    hosts: Counter = Counter()
+    for s in radar_sigs:
+        hosts[_limit_key(s)] += 1
+        stamp = s.published_at or s.event_date or s.discovered_at or ""
+        if stamp[:10] == today_iso:
+            today_cnt += 1
+        try:
+            dt = datetime.fromisoformat(stamp.replace("Z", "+00:00")) if len(stamp) > 10 else datetime.fromisoformat(f"{stamp[:10]}T12:00:00+08:00")
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=CST)
+            ages_h.append(max(0.0, (now - dt).total_seconds() / 3600.0))
+        except ValueError:
+            pass
+    top1_host, top1_cnt = hosts.most_common(1)[0] if hosts else ("", 0)
+    total = len(radar_sigs)
+    return {
+        "radar_count": total,
+        "today_signals": today_cnt,
+        "radar_median_age_hours": round(statistics.median(ages_h), 1) if ages_h else 0.0,
+        "top1_host": top1_host,
+        "top1_host_share": round(top1_cnt / total, 3) if total else 0.0,
+        "picks_count": len(picks),
+    }
+
+
 def update_feed(cfg: Config, forum, store, now: datetime,
-                community_posts: list | None = None, llm=None) -> int:
+                community_posts: list | None = None, llm=None,
+                metrics_out: dict | None = None) -> int:
+    with _feed632_lock(cfg):
+        return _update_feed_locked(cfg, forum, store, now,
+                                   community_posts=community_posts, llm=llm,
+                                   metrics_out=metrics_out)
+
+
+def _update_feed_locked(cfg: Config, forum, store, now: datetime,
+                        community_posts: list | None = None, llm=None,
+                        metrics_out: dict | None = None) -> int:
     f = cfg.settings["feed"]
     post_id = forum.first_post_id(f["topic_id"])
     raw = forum.post_raw(post_id)
     feed, mode = read_feed(raw)
+    import copy
+    _before = copy.deepcopy(feed)
     since = (now - timedelta(hours=f.get("window_hours", 72))).isoformat(timespec="seconds")
     sigs = [x for x in store.recent_signals(since) if x.topic_id]
     # gw-ai-pulse（2026-11-16）：recent_signals 按 discovered_at 过滤，不看发布日期。
     # 于是一条 10-30 的旧公告只要在今天被采到，就能在 radar 上挂满 72 小时，
-    # 用户看到的却像是今天的新闻。这里追加一道按**发布日期**的窗口判断：
-    # 发布日期已知且早于窗口的，不展示（话题仍在分类 20，只是不上首页）。
+    # 用户看到的却像是今天的新闻。这里追加一道按**发布时间**的窗口判断：
+    # 发布时间已知且早于窗口的，不展示（话题仍在分类 20，只是不上首页）。
     sigs = [x for x in sigs if _in_publish_window(x, since)]
     # gw-ai-pulse（2026-11-17）：排序改为「日分组 > 组内 信息源:相关度=3:2 > 精确时间」。
     # 旧实现是 (-relevance, -discovered_at)，其中 discovered_at 是**采集时间**，
@@ -692,7 +898,18 @@ def update_feed(cfg: Config, forum, store, now: datetime,
     # 整个雷达等于只按相关度排序——37 条里 34 条同为 relevance=2 时顺序基本随机。
     # 新规则详见 render.radar_rank 的注释。
     sigs = sorted(sigs, key=lambda x: radar_rank(x, now))
-    items = radar_items(sigs[: f.get("max_items", 60)], cfg, cfg.settings["discourse"]["base_url"])
+    radar_cap = int(f.get("max_items", 60))
+    radar_paper_cap = int(f.get("radar_max_papers", 0) or 0)
+    radar_per_src = int(f.get("radar_max_per_source", 0) or 0)
+    radar_per_src_day = int(f.get("radar_max_per_source_per_day", 0) or 0)
+    radar_sigs = select_radar_signals(
+        sigs,
+        cap=radar_cap,
+        max_papers=radar_paper_cap,
+        max_per_source=radar_per_src,
+        max_per_source_per_day=radar_per_src_day,
+    )
+    items = radar_items(radar_sigs, cfg, cfg.settings["discourse"]["base_url"])
     feed["radar"] = items            # 只改雷达相关字段，其余字段（简报、焦点、精编……）原样保留
     feed["radar_updated_at"] = now.isoformat(timespec="seconds")
     nxt = next_run_at(cfg, now)
@@ -710,11 +927,21 @@ def update_feed(cfg: Config, forum, store, now: datetime,
     # 各自从整个信号池里挑，谁也不看谁，同一篇文章会在同一屏出现两次
     # （生产实例：01[1] 虚拟电厂 = 02 右栏第一条；01[2][3] = 04 推荐的前两条）。
     # 这里先把「01 + 焦点」占用的信号算出来，后面三块统一按它排除。
-    focus_sig = next((x for x in sigs if getattr(x, "focus", False)), None)
+    # 2026-11-23：02 焦点与 01 深度简报跨轨防撞题——若首位焦点与 daily_brief.feature_titles
+    # 撞同一事件且池内还有其他新鲜焦点，则优先顺延给下一条不撞题的焦点。
+    focus_cands = [x for x in sigs if getattr(x, "focus", False) and not is_research(x)]
+    focus_sig = next((x for x in focus_cands if not _clashes_with_daily_brief(x, feed)), None)
+    if focus_sig is None and focus_cands:
+        focus_sig = focus_cands[0]
     brief_pool = [x for x in sigs if x is not focus_sig]
     brief_sigs = brief_signals(brief_pool, BRIEF_MAX, now=now,
                                per_source=int(f.get("brief_max_per_source", 0) or 0))
-    taken_sigs = list(brief_sigs) + ([focus_sig] if focus_sig is not None else [])
+    # 2026-11-23：当 01 左栏已被 daily_brief 占据时，前端不渲染 feed["brief"]，
+    # 此时仅需排除实际展示在 02 的 focus_sig，避免把近期唯一的新鲜工具/能源信号白白藏掉。
+    has_daily_brief = bool((feed.get("daily_brief") or {}).get("insights"))
+    taken_sigs = ([focus_sig] if focus_sig is not None else []) if has_daily_brief else (
+        list(brief_sigs) + ([focus_sig] if focus_sig is not None else [])
+    )
     taken_ids = {id(x) for x in taken_sigs}
     taken_urls = {src.url for x in taken_sigs for src in getattr(x, "sources", [])}
 
@@ -733,6 +960,7 @@ def update_feed(cfg: Config, forum, store, now: datetime,
                 questions=set(ecfg.get("questions") or ["Q01", "Q02", "Q09"]),
                 domains=set(ecfg.get("domains") or ["能源AI"]),
                 limit=int(ecfg.get("count", 3)),
+                per_source=int(ecfg.get("max_per_source", 0) or 0),
             )
             if pool:
                 feed["energy"] = energy_items(
@@ -755,6 +983,7 @@ def update_feed(cfg: Config, forum, store, now: datetime,
     # 01 的三条、02 的焦点全是它。阈值在 settings.feed，设 0 即回退旧行为。
     brief_per_src = int(f.get("brief_max_per_source", 0) or 0)
     picks_per_src = int(f.get("picks_max_per_source", 0) or 0)
+    picks_max_age = int(f.get("picks_max_age_hours", 0) or 0)
     if f.get("update_brief", True) and sigs:
         # gw-ai-pulse（2026-11-19）：02 焦点单独处理。
         # 有焦点信号时，02 = 焦点长文的入口卡（导语 + 3 条要点，标题链到话题），
@@ -774,7 +1003,8 @@ def update_feed(cfg: Config, forum, store, now: datetime,
         # gw-ai-pulse（2026-11-20）：01 与 04 各自从整个池子里挑，同一篇文章会在
         # 一屏里出现两次（生产实例：632 的四条推荐里两条正是 01 的二三条）。
         # 这里把 01 简报 + 02 焦点已经用掉的信号排除掉再挑 04。
-        picks = picks_excluding(sigs, exclude=taken_sigs, now=now, per_source=picks_per_src)
+        picks = picks_excluding(sigs, exclude=taken_sigs, now=now,
+                                per_source=picks_per_src, max_age_hours=picks_max_age)
         if picks:
             feed["picks"] = picks
         elif "picks" in feed:
@@ -782,11 +1012,13 @@ def update_feed(cfg: Config, forum, store, now: datetime,
         feed["brief_updated_at"] = now.isoformat(timespec="seconds")
 
     # gw-ai-pulse（2026-11-16）：05 社区今日 + 今日一问。
-    # 这两块原先由日报编辑手写（编辑推荐 + 编辑提问）。日报停用后改为读论坛真实帖子：
-    #   community —— 近 N 天、非信号分类的帖子，按回复数降序取前几条，who = 发帖人
-    #   question  —— 由模型根据这些帖子的实际讨论生成，模型不可用时退回规则提问
+    # 2026-11-23：AI 雷达页已删除 05「社区精选」与 06「栏目更新」；当 community.write_to_feed=false 时，
+    # 主动清理 632 里的 community / question / community_updated_at 字段，不再发额外的补作者请求。
     ccfg = cfg.settings.get("community") or {}
-    if ccfg.get("enabled", False) and community_posts:
+    if ccfg.get("enabled", False) and not ccfg.get("write_to_feed", True):
+        for obsolete in ("community", "question", "community_updated_at"):
+            feed.pop(obsolete, None)
+    elif ccfg.get("enabled", False) and community_posts:
         from .community import build_question, pick_community, resolve_authors
         # 先挑出要展示的几条，**再**补发帖人：topic() 是一次完整请求，
         # 对整池 55 条都补会把 admin API key 限额打满（2026-11-19 事故）。
@@ -823,11 +1055,28 @@ def update_feed(cfg: Config, forum, store, now: datetime,
     # gw-ai-pulse（2026-11-16）：updated_at 原先只有日报写，日报停用后它永远停在
     # 最后一期日报的时间（09:28），而内容其实已经刷新过多次——刊头显示的「X 更新」
     # 与事实不符。这里让它跟着每轮刷新走，与 brief_updated_at 同源。
-    feed["updated_at"] = now.isoformat(timespec="seconds")
+    # gw-ai-pulse（2026-11-21）：models 每日快照（06:00 起跑）常常 0 条新内容，
+    # 却照样刷新 updated_at，刊头每天都显示「06:09 更新」，读者以为有新内容。
+    # 现在只有**展示内容**（排除所有 *_at 时间戳字段）真的变了才刷新 updated_at；
+    # 采集器是否存活仍由 radar_updated_at 表达，不受影响。
+    def _content(d):
+        return {k: v for k, v in (d or {}).items() if not k.endswith("_at")}
+    if not _before.get("updated_at") or _content(_before) != _content(feed):
+        feed["updated_at"] = now.isoformat(timespec="seconds")
     new_raw = write_feed(raw, feed, mode)
     forum.update_post(post_id, new_raw, "采集器刷新简报与信号雷达")
     log.info("底座帖写入完成：radar %d 条、正文 %d 字符",
              len(feed.get("radar") or []), len(new_raw))
+    written_n = len(feed.get("radar") or [])
+    m = _compute_feed_metrics(radar_sigs[:written_n], feed.get("picks") or [], now)
+    if metrics_out is not None:
+        metrics_out.update(m)
+    log.info("底座帖健康度：radar %d 条、今日 %d 条、中位年龄 %.1fh、最大信源 %s(%.0f%%)、今日值得看 %d 条",
+             m["radar_count"], m["today_signals"], m["radar_median_age_hours"],
+             m["top1_host"] or "-", m["top1_host_share"] * 100, m["picks_count"])
+    if m["radar_count"] > 0 and (m["today_signals"] == 0 or m["radar_median_age_hours"] > 48.0):
+        log.warning("新鲜度 SLA 预警：今日新增 %d 条、雷达中位年龄 %.1fh（阈值 48h）",
+                    m["today_signals"], m["radar_median_age_hours"])
     check, _ = read_feed(forum.post_raw(post_id))
     # gw-ai-pulse（2026-11-17）：比对基准必须是 write_feed **实际写下去的**条数，
     # 不能是收缩前的 items。write_feed 在超预算时会把 feed["radar"] 二分收缩
@@ -1041,16 +1290,17 @@ def update_feed_topics(cfg: Config, forum, signals, llm, now: datetime | None = 
                          max_on_home=int(tcfg.get("max_topics_on_home", 5)))
 
     f = cfg.settings["feed"]
-    post_id = forum.first_post_id(f["topic_id"])
-    raw = forum.post_raw(post_id)
-    feed, mode = read_feed(raw)
-    old = feed.get("topics") or []
-    feed["topics"] = topics
-    feed["topics_updated_at"] = now.isoformat(timespec="seconds")
-    forum.update_post(post_id, write_feed(raw, feed, mode), "主题档案：每周判断更新")
-    check, _ = read_feed(forum.post_raw(post_id))
-    if len(check.get("topics") or []) != len(topics):
-        raise RuntimeError("底座帖读回后主题条数不一致")
+    with _feed632_lock(cfg):
+        post_id = forum.first_post_id(f["topic_id"])
+        raw = forum.post_raw(post_id)
+        feed, mode = read_feed(raw)
+        old = feed.get("topics") or []
+        feed["topics"] = topics
+        feed["topics_updated_at"] = now.isoformat(timespec="seconds")
+        forum.update_post(post_id, write_feed(raw, feed, mode), "主题档案：每周判断更新")
+        check, _ = read_feed(forum.post_raw(post_id))
+        if len(check.get("topics") or []) != len(topics):
+            raise RuntimeError("底座帖读回后主题条数不一致")
     return {"topics": len(topics), "previous": len(old),
             "week": {t["name"]: t["week"] for t in topics}, "updated_at": feed["topics_updated_at"],
             "extra_posts": len(extra), "dossiers": dossier_results}

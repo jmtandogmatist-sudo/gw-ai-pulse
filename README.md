@@ -64,7 +64,7 @@ gw-ai-pulse/
 ## 日常命令
 
 ```bash
-ROOT=/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse
+ROOT=/Users/sr_jm/gw_llm_ai_pulse
 PY=$ROOT/.venv/bin/python
 
 # 环境预检

@@ -7,14 +7,14 @@
 
 	<key>ProgramArguments</key>
 	<array>
-		<string>/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/.venv/bin/python</string>
+		<string>/Users/sr_jm/gw_llm_ai_pulse/.venv/bin/python</string>
 		<string>-m</string>
 		<string>collector</string>
 		<string>weekly-report</string>
 	</array>
 
 	<key>WorkingDirectory</key>
-	<string>/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/01-采集器</string>
+	<string>/Users/sr_jm/gw_llm_ai_pulse/01-采集器</string>
 
 	<key>EnvironmentVariables</key>
 	<dict>
@@ -35,8 +35,8 @@
 	<false/>
 
 	<key>StandardOutPath</key>
-	<string>/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/01-采集器/logs/launchd-weekly.out</string>
+	<string>/Users/sr_jm/gw_llm_ai_pulse/01-采集器/logs/launchd-weekly.out</string>
 	<key>StandardErrorPath</key>
-	<string>/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/01-采集器/logs/launchd-weekly.err</string>
+	<string>/Users/sr_jm/gw_llm_ai_pulse/01-采集器/logs/launchd-weekly.err</string>
 </dict>
 </plist>

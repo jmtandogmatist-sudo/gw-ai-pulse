@@ -1,0 +1,214 @@
+# 02-深度简报 主配置（密钥走 macOS 钥匙串 service=gw-ai-pulse，不落明文）
+
+discourse:
+  base_url: https://aicopilot.goldwind.com.cn:3211
+  api_username: U8570
+  api_key_secret: discourse-api-key
+  category_id: 15                 # 选 B：发布到公开分类 15「趋势与情报」
+  tags:
+    - ai
+    - 资讯
+  feed_topic_id: 632              # 首页底座帖（只写 daily_brief 字段，不覆盖采集器字段）
+  verify_tls: true
+
+# 供稿引擎：主用免费 Gemini 3.8 Flash，异常/限流自动回退公司内网 qwen3.8-27b
+llm:
+  primary:
+    provider: gemini
+    base_url: https://generativelanguage.googleapis.com/v1beta
+    model: gemini-3.8-flash
+    api_key_secret: gemini-api-key
+    timeout_seconds: 120
+    max_output_tokens: 6500
+  fallback:
+    provider: openai_compat
+    base_url: https://aicopilot.goldwind.com.cn:3213/v1
+    model: qwen3.8-27b
+    api_key_secret: llm-api-key
+    timeout_seconds: 120
+    max_output_tokens: 5500
+
+# 实时全网检索：Tavily News Search（basic = 1 credit/次；每天 10 次 ≈ 300 credits/月，远低于 1000 免费额度）
+search:
+  provider: tavily
+  api_key_secret: tavily-api-key
+  endpoint: https://api.tavily.com/search
+  search_depth: basic
+  days: 2
+  max_results_per_query: 6
+  timeout_seconds: 20
+
+  # 按 ai-news-harvester 5 大类 + wind-chief-expert 风电与能源贸易矩阵编排（共 10 组查询）
+  queries:
+    # A. 全球前沿实验室 & 资本动态
+    - id: frontier-labs
+      category: ai_frontier
+      label: 全球前沿实验室与模型发布
+      topic: news
+      query: "(OpenAI OR Anthropic OR \"Google DeepMind\" OR Meta OR xAI OR Grok OR Mistral) (model OR release OR IPO OR launch OR benchmark) AI"
+    # B. 算力、芯片与智能体运行时安全
+    - id: compute-runtime
+      category: ai_compute
+      label: AI 算力基础设施与运行时
+      topic: news
+      query: "(NVIDIA OR AMD OR hyperscaler) (AI chip OR GPU OR datacenter OR agent sandbox OR inference) news"
+    # C. 国产大模型与开源生态（用于 24h 动态捕捉与负向核查）
+    - id: domestic-models
+      category: ai_domestic
+      label: 国产基座大模型与开源生态
+      topic: news
+      query: "(DeepSeek OR Qwen OR Kimi OR Moonshot OR Zhipu OR MiniMax OR Hunyuan OR Pangu OR 腾讯混元 OR 阿里千问) (open source OR release OR model OR 开源 OR 发布)"
+    # D. AI 安全异常、对齐与监管治理
+    - id: ai-security-gov
+      category: ai_security
+      label: AI 安全漏洞、对齐事件与监管
+      topic: news
+      query: "(AI safety OR prompt injection OR model vulnerability OR AI regulation OR guardrails OR alignment) news"
+    # E. 物理世界 AI × 工业与能源应用
+    - id: industrial-ai
+      category: ai_industrial
+      label: 工业制造与能源 AI 落地
+      topic: news
+      query: "(industrial AI OR manufacturing AI OR power grid AI OR renewable energy AI OR robotics deployment) news"
+    # F. 全球海上风电工程与装机/审批/并网
+    - id: offshore-wind
+      category: wind_industry
+      label: 全球海上风电项目与并网
+      topic: news
+      query: "\"offshore wind\" (GW OR MW OR auction OR lease OR turbine OR grid OR monopile OR Vestas OR Siemens Gamesa OR Orsted)"
+    # G. 全球陆上风电、整机厂与供应链/EPC
+    - id: wind-oem-epc
+      category: wind_industry
+      label: 风电整机厂、EPC 与海工供应链
+      topic: news
+      query: "(wind turbine OR wind farm) (Vestas OR \"GE Vernova\" OR Nordex OR Goldwind OR Envision OR Mingyang OR CSOV OR EPC OR permit) MW"
+    # H. 全球能源贸易、碳边境税（CBAM）与供应链政策（公开合规口径，聚焦贸易与碳壁垒）
+    - id: energy-trade-cbam
+      category: trade_policy
+      label: 全球能源贸易、CBAM 碳税与新能源关税
+      topic: news
+      query: "(CBAM OR \"carbon border\" OR \"emissions trading\" OR \"clean energy\" tariff OR \"Made in Europe\" OR renewable subsidy OR wind export) policy"
+    # I. 中国新能源与风电/储能产业政策
+    - id: china-energy-policy
+      category: trade_policy
+      label: 中国风电储能与新能源产业政策
+      topic: news
+      query: "(国家能源局 OR 新型储能 OR 风电 OR 绿电 OR 虚拟电厂 OR 新能源) 政策 2026"
+    # J. AI 数据中心电力需求与风电消纳
+    - id: ai-power-demand
+      category: wind_industry
+      label: AI 数据中心用电与绿电直供
+      topic: news
+      query: "(\"data center\" power OR AI electricity demand) (wind OR renewable OR PPA OR grid) GW"
+
+# 复用快轨 01-采集器/state/index.sqlite 近 24h 已核验信号作为补充底料
+collector_sqlite:
+  enabled: true
+  path: ../01-采集器/state/index.sqlite
+  lookback_hours: 30
+  max_items: 20
+
+# 代码化 source-verifier 审计参数
+verifier:
+  max_age_days: 2                 # 0–2 天正常放行；3 天标 [追踪]；>3 天直接丢弃（严格 72h 硬闸）
+  drop_undated: true              # 2026-11-23：非 T0/T1 且无发布日期的静态页（如公司百科页）一律丢弃
+  history_dedup_days: 2           # 跨期去重：排除近 2 期简报已用过的 URL，并把已报选题注入模型禁重清单
+  cn_mirror_max_age_days: 5       # 中文镜像报道超过 5 天不作为当日快讯挂入
+  check_url_live: true            # 并发 HTTP HEAD/GET 校验每条候选链接活性
+  url_timeout_seconds: 8
+  max_workers: 10
+  # 国内直连白名单（以及所有 .cn 域名与公司内网域名）：之外的海外站点自动标注〔需外网〕
+  cn_direct_domains:
+    - aicopilot.goldwind.com.cn
+    - ithome.com
+    - 36kr.com
+    - qbitai.com
+    - jiqizhixin.com
+    - caixin.com
+    - cls.cn
+    - wallstreetcn.com
+    - thepaper.cn
+    - yicai.com
+    - stcn.com
+    - eastmoney.com
+    - sina.com.cn
+    - 163.com
+    - qq.com
+    - sohu.com
+    - in-en.com
+    - ofweek.com
+    - cnenergynews.cn
+    - bjx.com.cn
+    - china5e.com
+    - cpnn.com.cn
+    - news.cn
+    - xinhuanet.com
+  # 为纯海外信源条目自动补充国内可直连中文报道（通过 Tavily 检索并实测 HTTP 200）
+  cn_mirror_enabled: true
+  cn_mirror_max_queries: 6
+  # T0–T4 权威域名分级映射（参考 source-verifier & wind-chief-expert）
+  tier_domains:
+    T0:
+      - gov.cn
+      - gov.uk
+      - europa.eu
+      - energy.gov
+      - whitehouse.gov
+      - iec.ch
+      - iso.org
+    T1:
+      - gwec.net
+      - iea.org
+      - irena.org
+      - dnv.com
+      - nrel.gov
+      - nature.com
+      - ieee.org
+      - windeurope.org
+    T2:
+      - openai.com
+      - anthropic.com
+      - deepmind.google
+      - blog.google
+      - ai.meta.com
+      - blogs.nvidia.com
+      - github.com
+      - huggingface.co
+      - arxiv.org
+      - vestas.com
+      - siemensgamesa.com
+      - orsted.com
+      - gevernova.com
+    T3:
+      - reuters.com
+      - bloomberg.com
+      - ft.com
+      - theguardian.com
+      - npr.org
+      - fortune.com
+      - techcrunch.com
+      - cnbc.com
+      - windpowermonthly.com
+      - renews.biz
+      - offshorewind.biz
+      - windtech-international.com
+      - energyglobal.com
+      - rechargenews.com
+      - eqs-news.com
+      - oceannews.com
+      - darkreading.com
+      - infosecurity-magazine.com
+      - thehackernews.com
+      - caixin.com
+      - 36kr.com
+      - ithome.com
+      - qbitai.com
+      - news.cn
+      - cpnn.com.cn
+      - china5e.com
+
+# 公开合规口径（分类 15 对外部访客可读）
+compliance:
+  public_safe: true
+  trade_section_title: 全球能源贸易与碳壁垒政策
+  note: 分类 15 对所有人可见：不写公司内部未公开动作，涉宏观贸易聚焦能源政策、碳税（CBAM/ETS）、关税与供应链准入，不做纯政治外交评论。

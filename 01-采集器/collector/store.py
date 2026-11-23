@@ -5,6 +5,7 @@ import json
 import sqlite3
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlparse
 
 from .models import Signal
 
@@ -15,10 +16,18 @@ CREATE TABLE IF NOT EXISTS signals (
   topic_id INTEGER,
   post_id INTEGER,
   discovered_at TEXT NOT NULL,
+  published_at TEXT NOT NULL DEFAULT '',
+  event_date TEXT NOT NULL DEFAULT '',
+  source_host TEXT NOT NULL DEFAULT '',
+  source_tier TEXT NOT NULL DEFAULT '',
+  relevance INTEGER NOT NULL DEFAULT 0,
   data TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_signals_event ON signals(event_key);
 CREATE INDEX IF NOT EXISTS idx_signals_time ON signals(discovered_at);
+CREATE INDEX IF NOT EXISTS idx_signals_pub ON signals(published_at);
+CREATE INDEX IF NOT EXISTS idx_signals_event_date ON signals(event_date);
+CREATE INDEX IF NOT EXISTS idx_signals_host ON signals(source_host);
 CREATE TABLE IF NOT EXISTS url_alias (
   url_id TEXT PRIMARY KEY,
   signal_id TEXT NOT NULL
@@ -79,19 +88,82 @@ CREATE INDEX IF NOT EXISTS idx_seen_posts_week ON seen_posts(week);
 """
 
 
+def _primary_host(sig: Signal) -> str:
+    for s in sig.sources or []:
+        h = (urlparse(s.url or "").hostname or "").lower()
+        if h.startswith("www."):
+            h = h[4:]
+        if h:
+            return h
+    return ""
+
+
+def _primary_tier(sig: Signal) -> str:
+    return (sig.sources[0].tier or "") if sig.sources else ""
+
+
 class Store:
     def __init__(self, path: Path | str):
         self.path = str(path)
         if self.path != ":memory:":
             Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(self.path)
+        self._migrate_pre_schema()
         self.db.executescript(SCHEMA)
+        self._migrate_post_schema()
+
+    def _migrate_pre_schema(self) -> None:
+        """老库升级前先补齐 signals 新增列，避免 SCHEMA 里的 CREATE INDEX 报错。"""
+        tables = {r[0] for r in self.db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if "signals" not in tables:
+            return
+        cols = {r[1] for r in self.db.execute("PRAGMA table_info(signals)")}
+        additions = [
+            ("published_at", "TEXT NOT NULL DEFAULT ''"),
+            ("event_date", "TEXT NOT NULL DEFAULT ''"),
+            ("source_host", "TEXT NOT NULL DEFAULT ''"),
+            ("source_tier", "TEXT NOT NULL DEFAULT ''"),
+            ("relevance", "INTEGER NOT NULL DEFAULT 0"),
+        ]
+        changed = False
+        for col, ddl in additions:
+            if col not in cols:
+                self.db.execute(f"ALTER TABLE signals ADD COLUMN {col} {ddl}")
+                changed = True
+        if changed:
+            self.db.commit()
+
+    def _migrate_post_schema(self) -> None:
         # 轻量迁移：老库里 judged 表还没有 verdict 列（2026-11-20 加的）。
-        # 用 PRAGMA 判断而不是 try/except，避免把「表不存在」这类真问题一起吞掉。
         cols = {r[1] for r in self.db.execute("PRAGMA table_info(judged)")}
         if "verdict" not in cols:
             self.db.execute("ALTER TABLE judged ADD COLUMN verdict TEXT NOT NULL DEFAULT ''")
             self.db.commit()
+        # 2026-11-23：把历史 signals 行从 data JSON 回填到显式索引列（幂等，只补空行）
+        rows = self.db.execute(
+            "SELECT signal_id, data FROM signals WHERE published_at='' AND event_date='' AND source_host=''"
+        ).fetchall()
+        if rows:
+            updates = []
+            for sid, raw in rows:
+                try:
+                    sig = Signal.from_dict(json.loads(raw))
+                except (ValueError, KeyError, TypeError):
+                    continue
+                updates.append((
+                    sig.published_at or "",
+                    sig.event_date or "",
+                    _primary_host(sig),
+                    _primary_tier(sig),
+                    int(sig.relevance or 0),
+                    sid,
+                ))
+            if updates:
+                self.db.executemany(
+                    "UPDATE signals SET published_at=?, event_date=?, source_host=?, source_tier=?, relevance=? WHERE signal_id=?",
+                    updates,
+                )
+                self.db.commit()
 
     # ---- 信号 ----
     def known_url(self, url_id: str) -> bool:
@@ -121,16 +193,35 @@ class Store:
 
     def save_signal(self, sig: Signal, url_ids: list[str]) -> None:
         self.db.execute(
-            "INSERT OR REPLACE INTO signals(signal_id,event_key,topic_id,post_id,discovered_at,data) VALUES(?,?,?,?,?,?)",
-            (sig.signal_id, sig.event_key, sig.topic_id, sig.post_id, sig.discovered_at, json.dumps(sig.to_dict(), ensure_ascii=False)),
+            "INSERT OR REPLACE INTO signals"
+            "(signal_id,event_key,topic_id,post_id,discovered_at,published_at,event_date,source_host,source_tier,relevance,data) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                sig.signal_id, sig.event_key, sig.topic_id, sig.post_id, sig.discovered_at,
+                sig.published_at or "", sig.event_date or "", _primary_host(sig), _primary_tier(sig),
+                int(sig.relevance or 0), json.dumps(sig.to_dict(), ensure_ascii=False),
+            ),
         )
         for uid in url_ids:
             self.db.execute("INSERT OR IGNORE INTO url_alias(url_id,signal_id) VALUES(?,?)", (uid, sig.signal_id))
         self.db.commit()
 
     def recent_signals(self, since_iso: str, limit: int = 500) -> list[Signal]:
+        """按有效发布时间（优先 published_at → event_date → discovered_at）检索窗口内信号。
+
+        2026-11-23：原先只查 discovered_at >= since_iso，导致「3 天前发布、今日采到」的旧文
+        在存储层被当成新信号挂满 72h。现在 SQL 层直接按发布日期索引过滤，
+        再由上游 _in_publish_window 执行精确到秒的时刻裁剪。
+        """
+        since_day = (since_iso or "")[:10]
         rows = self.db.execute(
-            "SELECT data FROM signals WHERE discovered_at>=? ORDER BY discovered_at DESC LIMIT ?", (since_iso, limit)
+            "SELECT data FROM signals "
+            "WHERE (published_at != '' AND published_at >= ?) "
+            "   OR (published_at = '' AND event_date != '' AND event_date >= ?) "
+            "   OR (published_at = '' AND event_date = '' AND discovered_at >= ?) "
+            "ORDER BY COALESCE(NULLIF(published_at, ''), NULLIF(event_date, ''), discovered_at) DESC "
+            "LIMIT ?",
+            (since_day, since_day, since_iso, limit),
         ).fetchall()
         return [Signal.from_dict(json.loads(r[0])) for r in rows]
 

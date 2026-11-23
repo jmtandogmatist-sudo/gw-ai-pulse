@@ -165,7 +165,7 @@ def fetch_rss(src: dict) -> list[Candidate]:
     url = src["url"]
     if src.get("date_window_days"):
         url = _with_date_window(url, int(src["date_window_days"]))
-    raw = http_get(url)
+    raw = http_get(url, timeout=int(src.get("timeout_seconds", 20)))
     root = ET.fromstring(raw.encode("utf-8") if isinstance(raw, str) else raw)
     atom = "{http://www.w3.org/2005/Atom}"
     items = root.findall(".//item")
@@ -360,7 +360,7 @@ def fetch_changelog(src: dict) -> list[Candidate]:
 
 
 SPECIAL_KINDS = ("github_release", "hn_top", "github_trending", "hf_trending",
-                 "github_repo", "github_topic")
+                 "github_repo", "github_topic", "github_org")
 # page：没有订阅接口的官方页面，采集器不抓，由每日精选 skill 按清单人工核查
 MANUAL_KINDS = ("page",)
 

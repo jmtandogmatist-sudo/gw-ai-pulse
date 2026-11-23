@@ -28,6 +28,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 SKILLS = ROOT / "skills"
 COLLECTOR = ROOT / "01-采集器"
+LAUNCHD = ROOT / "launchd"
 WORK = ROOT / "work"
 BACKUP_DIR = ROOT / "_rebind-backup"
 
@@ -50,6 +51,8 @@ RULES: list[tuple[str, str]] = [
     ("/Users/sr_jm/Desktop/GWAIPulse/uat-runtime/work/ai-topic-dossier", str(WORK / "ai-topic-dossier")),
     ("/Users/sr_jm/Desktop/GWAIPulse/uat-runtime/work", str(WORK)),
     ("/Users/sr_jm/Desktop/GWAIPulse/uat-runtime/01-采集器", str(COLLECTOR)),
+    # --- 原 gw-ai-pulse 运行目录（桌面迁移）---
+    ("/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse", str(ROOT)),
     # --- 旧 WorkBuddy 工作目录 ---
     ("/Users/sr_jm/WorkBuddy/ai-radar-daily", str(WORK / "ai-radar-daily")),
     ("/Users/sr_jm/WorkBuddy/ai-tech-radar", str(WORK / "ai-tech-radar")),
@@ -65,6 +68,7 @@ STALE_PREFIXES = [
     "/Users/sr_jm/WorkBuddy/",
     "~/WorkBuddy/",
     "/Users/sr_jm/Desktop/GWAIPulse/uat-runtime/",
+    "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse",
 ]
 
 # verify 允许白名单：文档里作为「历史沿革 / 对照」提及旧路径不算违规。
@@ -76,7 +80,7 @@ SKIP_DIRS = {"_rebind-backup", "_archive", ".git", "__pycache__", ".venv", "node
 
 
 def roots() -> list[Path]:
-    return [p for p in (SKILLS, COLLECTOR) if p.exists()]
+    return [p for p in (SKILLS, COLLECTOR, LAUNCHD) if p.exists()]
 
 
 def iter_files() -> list[Path]:

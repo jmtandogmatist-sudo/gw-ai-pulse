@@ -93,9 +93,16 @@ class Discourse:
     def _req(self, method: str, path: str, body: dict | None = None) -> dict:
         for attempt in range(3):
             self._pace()
-            r = requests.request(method, self.base + path, headers=self._headers(),
-                                 data=json.dumps(body, ensure_ascii=False).encode("utf-8") if body else None,
-                                 timeout=30, verify=self.verify)
+            try:
+                r = requests.request(method, self.base + path, headers=self._headers(),
+                                     data=json.dumps(body, ensure_ascii=False).encode("utf-8") if body else None,
+                                     timeout=30, verify=self.verify)
+            except requests.RequestException as e:
+                if method == "GET" and attempt < 2:
+                    log.warning("论坛读取连接异常（%s%s：%s），2 秒后重试", method, path, e)
+                    time.sleep(2.0)
+                    continue
+                raise
             if r.status_code == 429:
                 self.rate_limited += 1
                 if attempt < RATE_LIMIT_RETRIES:

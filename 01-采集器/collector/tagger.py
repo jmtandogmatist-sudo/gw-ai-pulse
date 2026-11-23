@@ -17,7 +17,13 @@ import requests
 from .config import Config, get_secret
 from .dedup import check_event_key, normalize_event_key
 from .models import Candidate
-from .textnorm import drop_restating_lead, flatten_book_marks
+from .textnorm import (
+    clean_summary_punctuation,
+    drop_restating_lead,
+    filter_q01,
+    flatten_book_marks,
+    strip_footer_noise_us,
+)
 
 # gw-ai-pulse（2026-11-16）：模型推断的 event_date 与信源发布日期允许的最大偏差。
 # 超过即认定为编造，改用信源日期。留 1 天容纳「晚上发布、次日早晨采集」的跨日。
@@ -27,7 +33,7 @@ _EVENT_DATE_TOLERANCE_DAYS = 1
 # 新增了一种失败模式——WAF 对突发请求回 418/429，而不是「模型算错了」。
 # 这类失败是瞬时的，睡一会儿重试就能过；但如果整轮都在被拦，重试只会把一轮从 5 分钟拖成 20 分钟。
 # 所以：单次调用最多补 2 次（8s、16s），连续 3 次调用都被限流就放弃重试、直接失败，
-# 让整轮尽快落到 fatal，而不是拖着看门狗（max_seconds=1200）兜底。
+# 让整轮尽快落到 fatal，而不是拖着看门狗（settings.round.max_seconds，2026-11-20 起 1800）兜底。
 _RATE_STATUS = (418, 429)
 _RATE_RETRIES = 2
 _RATE_BACKOFF = 8.0
@@ -41,11 +47,17 @@ SYSTEM_PROMPT = """你是金风科技集团 AI 情报站的信号编辑。你会
 
 对每一条输出一个对象，字段如下：
 - idx：输入里的序号
-- keep：这条是否值得进情报站。与上述问题都无关、纯营销软文、旧闻重发、招聘、活动预告，keep=false
+- keep：这条是否值得进情报站。
+  - **应当保留（keep=true）**：涉及主流大模型发布/更新/性能事故、AI Agent/编码工具/MCP/开源框架与开发平台、AI 芯片/存储/数据中心算力与能耗、AI 安全漏洞与监管合规、风电/新能源/微电网/储能/算电协同的**实质性技术、产品、工程或政策进展**——即使原文是英文或未直接提及“金风”，也应保留；
+  - **应当丢弃（keep=false）**：与 AI/算力/安全/能源都无关的消费电子/汽车/娱乐新闻、纯营销软文、旧闻重发、招聘、活动预告、纯情绪观点或早报拼盘。
 - domain：从这些领域里选一个：{domains}
 - questions：它回答了哪些问题，填问题编号数组，可为空数组
 - topics：从这些主题标签里选 0–2 个，没有合适的就空数组：{topics}
-- relevance：对金风的相关度，0–3 的整数。3=直接影响集团业务或决策；2=值得相关团队知道；1=行业背景；0=基本无关
+- relevance：对金风的相关度，0–3 的整数。
+  - 3=直接影响风电/能源业务、重大政策合规或关键架构选型；
+  - 2=值得 AI 研发、算力、安全或能源业务团队知道的实质进展（包括主流模型更新、可用开源 AI 工具/框架、数据中心算力/存储变化、真实安全漏洞、新能源/微电网落地项目）；
+  - 1=仅作泛行业背景了解；
+  - 0=基本无关。
 - title：中文标题，一句话说清发生了什么，{min_title}–40 个字（论坛要求标题至少 {min_title} 个字），不加书名号以外的修饰。
   **标题必须与原文标题语义一致**：原文是「解读」「评论」「专访」「问答」「转载」这类体裁的，标题要保留这个定性，
   不得改写成「发布」「官宣」「正式出台」等更强的事实性说法（2026-11-20 生产事故：国家能源局的《报告》解读稿
@@ -104,9 +116,12 @@ RESEARCH_RULE = """
 
 FORCE_KEEP_RULE = """
 
-**本批是来源白名单补判**：下面每一条都来自集团指定的一手来源（官方发布或监管原文），
-默认 keep=true，请照常补齐 domain/questions/topics/relevance/title/summary/us/event_key/event_date。
-只有明显是招聘、活动预告、纯营销软文时，才给 keep=false。"""
+**本批是来源白名单补判**：下面每一条都来自集团指定的一手来源（官方发布、开源仓库或监管原文），
+**必须默认输出 keep=true**，并完整补齐 domain/questions/topics/relevance/title/summary/us/event_key/event_date。
+注意：
+1. 即使原文是英文、纯技术发布或开源仓库更新（未直接提及风电），也必须给 keep=true；
+2. 对模型发布、开源框架/CLI/Agent 工具、安全防护、算力架构、行业政策，relevance 应给 2 或 3；仅当确属纯背景资料时给 1；
+3. 只有明显是招聘、活动预告、纯营销软文或空文档翻译时，才给 keep=false；**严禁返回空数组 `[]`**。"""
 
 
 def zh_ratio(text: str) -> float:
@@ -197,7 +212,18 @@ def build_system_prompt(cfg: Config, force_keep: bool = False, research: bool = 
                                 min_title=min_title)
     if research:
         base += RESEARCH_RULE.format(min_title=min_title)
-    return base + (FORCE_KEEP_RULE if force_keep else "")
+    if force_keep:
+        # 2026-11-23：直接替换首段 keep 拒判条款，避免 qwen3.8-27b 在白名单补判时
+        # 遵循首段规则而大面积返回 [] / keep=false。
+        base = re.sub(
+            r"- keep：.*?(?=\n- domain：)",
+            "- keep：本批为来源白名单补判，默认必须给 keep=true（只有招聘、活动预告、纯营销软文才给 keep=false）",
+            base,
+            count=1,
+            flags=re.S,
+        )
+        base += FORCE_KEEP_RULE
+    return base
 
 
 def build_user_prompt(batch: list[Candidate]) -> str:
@@ -245,8 +271,16 @@ def validate_item(obj: dict, cfg: Config, cand: Candidate | None = None) -> TagR
     # 这里做两件确定性的事：压平嵌套书名号、丢掉摘要开头复述标题的句子。
     # 提示词也已经写清规则，这里是兜底——模型不照做时不该让脏数据上线。
     title = flatten_book_marks((obj.get("title") or "").strip())
-    summary = drop_restating_lead(title, (obj.get("summary") or "").strip())
-    us = (obj.get("us") or "").strip()
+    summary = clean_summary_punctuation(drop_restating_lead(title, (obj.get("summary") or "").strip()))
+    us = strip_footer_noise_us((obj.get("us") or "").strip())
+    src_name = getattr(cand, "source_name", "") if cand is not None else ""
+    valid_questions = filter_q01(
+        [q for q in questions if q in cfg.question_ids],
+        domain,
+        title,
+        summary,
+        src_name,
+    )
     min_title = cfg.settings["discourse"].get("min_title_chars", 15)
     if len(title) < min_title or len(title) > 60:
         errs.append(f"标题长度 {len(title)} 字，应在 {min_title}–60 字之间")
@@ -290,14 +324,15 @@ def validate_item(obj: dict, cfg: Config, cand: Candidate | None = None) -> TagR
         except ValueError:
             pass
     return TagResult(
-        keep=True, domain=domain, questions=[q for q in questions if q in cfg.question_ids], topics=topics,
+        keep=True, domain=domain, questions=valid_questions, topics=topics,
         relevance=max(0, min(3, relevance)), title=title, summary=summary, us=us,
         event_key=event_key, event_date=event_date,
         error="；".join(errs) or None,
     )
 
 
-def _tag_batch(batch: list[Candidate], system: str, cfg: Config, client) -> dict[int, dict]:
+def _tag_batch(batch: list[Candidate], system: str, cfg: Config, client,
+               *, force_keep: bool = False) -> dict[int, dict]:
     """调一次模型，返回 {批内 index: 结果对象}。
 
     2026-11-16：模型对「明显不值得保留」的条目（如未经证实的阴谋论、Show HN 自建项目）
@@ -305,14 +340,15 @@ def _tag_batch(batch: list[Candidate], system: str, cfg: Config, client) -> dict
     纯文本追问则明确回答「不值得」——说明这是**判定意图的正确表达，只是格式不合规**。
     因此把 `[]` 解释为「整批都不保留」，交给 validate_item 走 keep=false 分支，
     而不是当成「模型漏掉了这一条」丢进 pending 人工队列。
+    2026-11-23：但在 force_keep=True（白名单一手源补判）下，多条批次返回 `[]` 属于模型偷懒，
+    改拆单条重试，避免一次偷懒把整批 OpenAI/Qwen/Kimi 官方发布全判成 keep=false。
     """
     arr = parse_json_array(client.chat(system, build_user_prompt(batch)))
     if arr:
         return {int(o.get("idx", -1)): o for o in arr if isinstance(o, dict)}
-    # 批次里有同标题条目时模型更容易整批返回 []：拆成单条重送，保住其余有效条目。
-    # 只有「拆开后仍然全部返回 []」才认定整批都不保留。
+    # 批次里有同标题条目、或白名单补判多条返回空数组时，拆成单条重送，保住有效条目。
     keys = [re.sub(r"\s+", "", (c.title or "")).lower() for c in batch]
-    if len(keys) != len(set(keys)):
+    if len(keys) != len(set(keys)) or (force_keep and len(batch) > 1):
         merged: dict[int, dict] = {}
         for i, item in enumerate(batch):
             one = parse_json_array(client.chat(system, build_user_prompt([item])))
@@ -341,7 +377,7 @@ def tag_candidates(cands: list[Candidate], cfg: Config, client,
     for i in range(0, len(cands), size):
         batch = cands[i:i + size]
         try:
-            by_idx = _tag_batch(batch, system, cfg, client)
+            by_idx = _tag_batch(batch, system, cfg, client, force_keep=force_keep)
         except ValueError as e:
             # 2026-11-19：只在「模型输出格式坏了」时整批重试一次。
             # 实测这类失败与内容无关（JSON 少逗号 → "Expecting ',' delimiter"），
@@ -350,7 +386,7 @@ def tag_candidates(cands: list[Candidate], cfg: Config, client,
             # （tests/test_resilience.py::test_model_failure_is_counted_not_pending 守着这条）。
             log.warning("模型输出格式坏了（%s），整批重试一次", e)
             try:
-                by_idx = _tag_batch(batch, system, cfg, client)
+                by_idx = _tag_batch(batch, system, cfg, client, force_keep=force_keep)
             except Exception as e2:  # noqa: BLE001
                 results.extend(TagResult(keep=True, error=f"模型调用失败：{e2}") for _ in batch)
                 continue

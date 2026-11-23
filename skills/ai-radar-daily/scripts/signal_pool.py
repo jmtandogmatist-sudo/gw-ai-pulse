@@ -47,7 +47,7 @@ def _get(url: str, headers: Dict[str, str], as_json: bool = True, timeout: int =
 
 
 def parse_signal_raw(raw: str) -> Dict[str, Any]:
-    """解析采集器写的信号话题正文：机器可读块 + 摘要 + 对金风。"""
+    """解析采集器写的信号话题正文：兼容旧帖机器可读块与新帖纯正文解析。"""
     out: Dict[str, Any] = {}
     m = MACHINE_RE.search(raw or "")
     if m:
@@ -55,6 +55,34 @@ def parse_signal_raw(raw: str) -> Dict[str, Any]:
             out.update(json.loads(m.group(1)))
         except json.JSONDecodeError:
             pass
+
+    if not out.get("sources"):
+        srcs = [
+            {"name": sm.group(1).strip(), "url": sm.group(2).strip(), "tier": "media", "reachable": True}
+            for sm in re.finditer(r"^\s*-\s*\[([^\]]+)\]\((https?://[^)]+)\)", raw or "", re.M)
+        ]
+        if srcs:
+            out["sources"] = srcs
+    if not out.get("cred"):
+        cm = re.search(r"\[wrap=ais-signal[^\]]*\bcred=([gyr])\b", raw or "")
+        if cm:
+            out["cred"] = {"g": "green", "y": "yellow", "r": "red"}[cm.group(1)]
+    if not out.get("review"):
+        rm = re.search(r"\[wrap=ais-signal[^\]]*\breview=(\w+)\b", raw or "")
+        if rm:
+            out["review"] = rm.group(1)
+    if not out.get("event_date"):
+        dm = re.search(r"事件日期\s+(20\d{2}-\d{2}-\d{2})", raw or "")
+        if dm:
+            out["event_date"] = dm.group(1)
+    if out.get("relevance") is None:
+        relm = re.search(r"相关度：([●○]+)", raw or "")
+        if relm:
+            out["relevance"] = relm.group(1).count("●")
+    if not out.get("questions"):
+        qs = re.findall(r"^\s*-\s*(Q\d{2})\b", raw or "", re.M)
+        if qs:
+            out["questions"] = qs
 
     def section(name: str) -> str:
         # 分块正文到下一个空行为止（采集器 v0.2 起每块用 [wrap=ais-*] 包裹，正文后紧跟空行 + [/wrap]）

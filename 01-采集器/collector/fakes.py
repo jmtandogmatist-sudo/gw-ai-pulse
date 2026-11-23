@@ -28,6 +28,8 @@ class FakeLLM:
             return self._facts_reply(user)
         if "主笔" in system:
             return self._article_reply(user)
+        if "信号摘要编辑" in system:
+            return self._structured_summary_reply(user)
         out = []
         for line in user.splitlines():
             item = json.loads(line)
@@ -76,6 +78,26 @@ class FakeLLM:
             "open": "原文未披露的部分暂不推测。",
             "us": "供相关团队判断是否需要跟进而用。",
             "points": [x[:24] for x in facts[:3]] or ["原文关键事实见正文"],
+        }, ensure_ascii=False)
+
+    def _structured_summary_reply(self, user: str) -> str:
+        """离线模拟 ~300 字结构化摘要（见 collector/enrich.py）。"""
+        title = ""
+        for ln in user.splitlines():
+            if ln.startswith("标题："):
+                title = ln.split("：", 1)[1].strip()
+                break
+        body = user.split("正文：", 1)[-1].strip()
+        snippets = [ln.strip() for ln in body.splitlines() if len(ln.strip()) >= 12]
+        lead = (snippets[0][:60] if snippets else title) or "该来源披露了最新技术与行业进展"
+        return json.dumps({
+            "core": f"根据原文披露的新进展，相关机构针对该主题发布了具体更新与实测说明：{lead}。本次更新补充了前期公开信息中未展开的核心细节与适用范围。",
+            "points": [
+                "原文明确列出了核心技术机制、涉及版本与适用场景，强调实际部署阶段的边界条件与验证结果。",
+                "测试与披露数据覆盖了主要业务环节的运行表现，对现有工具链的兼容性与风险点给出了量化说明。",
+                "相关方同步说明了后续迭代节奏与配套支持方案，便于一线团队对照自身架构进行评估核对。",
+            ],
+            "impact": "对采用相关技术栈的企业与新能源数字化场景具有直接参考意义；原文尚未披露长期成本及跨环境实测结果，仍需后续跟踪验证。",
         }, ensure_ascii=False)
 
     def _tag_posts_reply(self, user: str) -> str:

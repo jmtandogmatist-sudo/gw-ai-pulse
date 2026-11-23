@@ -180,7 +180,7 @@ def validate_config(cfg: Config) -> list[str]:
     for src in cfg.sources:
         name = src.get("name", "?")
         kinds = ("rss", "atom", "listpage", "discourse", "page", "changelog", "sitemap",
-                 "github_release", "github_repo", "github_topic",
+                 "github_release", "github_repo", "github_topic", "github_org",
                  "hn_top", "github_trending", "hf_trending")
         if src.get("kind") not in kinds:
             problems.append(f"信源 {name}：kind 只能是 {' / '.join(kinds)}")
@@ -188,9 +188,12 @@ def validate_config(cfg: Config) -> list[str]:
             problems.append(f"信源 {name}：{src.get('kind')} 需要 repo")
         if src.get("kind") == "github_topic" and not src.get("topic"):
             problems.append(f"信源 {name}：github_topic 需要 topic")
+        if src.get("kind") == "github_org" and not src.get("org"):
+            problems.append(f"信源 {name}：github_org 需要 org")
         if src.get("kind") == "sitemap" and not src.get("url_pattern"):
             problems.append(f"信源 {name}：sitemap 需要 url_pattern（否则会把整站抓进来）")
-        elif src.get("kind") not in ("github_release", "github_repo", "github_topic", "discourse")                 and not src.get("url"):
+        elif src.get("kind") not in ("github_release", "github_repo", "github_topic", "github_org", "discourse") \
+                and not src.get("url"):
             problems.append(f"信源 {name}：缺少 url")
         if src.get("tier") not in ("authority", "official", "media", "research", "community"):
             problems.append(f"信源 {name}：tier 不合法")

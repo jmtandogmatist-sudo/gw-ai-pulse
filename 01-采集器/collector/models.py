@@ -69,6 +69,10 @@ class Signal:
     focus_claims: list[dict] = field(default_factory=list)   # 已通过逐字校验的事实：text/quote/source
     focus_minutes: int = 0                                   # 预计阅读分钟
 
+    # gw-ai-pulse（2026-11-20）普通信号的结构化摘要（见 collector/enrich.py）：
+    # {"core": str, "points": [str, ...], "impact": str}，空 dict 时按原简短摘要渲染。
+    structured_summary: dict = field(default_factory=dict)
+
     def to_dict(self) -> dict:
         d = asdict(self)
         return d

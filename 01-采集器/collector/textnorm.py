@@ -88,3 +88,65 @@ def flatten_book_marks(title: str) -> str:
     if inner_end < 0:
         return text
     return text[:inner] + "「" + text[inner + 1:inner_end] + "」" + text[inner_end + 1:]
+
+
+# ---------- 2026-11-21：摘要标点收尾、页脚噪声清洗、Q01 风电同行确定性守卫 ----------
+
+_TRAILING_OPEN_PUNCT = re.compile(r"[；;，,、：:\s]+$")
+_TERMINAL_PUNCT = frozenset("。！？!?….")
+
+_FOOTER_NOISE_RE = re.compile(
+    r"(?:arxivlabs|cookie\s*policy|privacy\s*policy|terms\s+of\s+(?:use|service)|"
+    r"all\s+rights\s+reserved|版权所有|隐私政策|合规要求.{0,12}价值观|"
+    r"subscribe\s+to\s+our\s+newsletter)",
+    re.I,
+)
+
+# Q01（风电AI同行）领域实体词约束：防止通用大模型/纯机器人新闻误入「风电AI同行」筛选
+_Q01_ENTITY_RE = re.compile(
+    r"(?:风电|风机|叶片|风场|海风|海上风电|陆上风电|功率预测|智能运维|机组|"
+    r"金风|远景|明阳|三一重能|电气风电|东方电气|运达|中船海装|"
+    r"vestas|维斯塔斯|siemens\s*gamesa|西门子歌美飒|ge\s*vernova|nordex|enercon|orsted|沃旭|"
+    r"虚拟电厂|电网|储能|光伏|绿电|新能源|电力系统|能源试点|"
+    r"\bwind\b|\bturbine\b|\boffshore\b|\brenewable\b|\bpower\s*grid\b)",
+    re.I,
+)
+
+
+def clean_summary_punctuation(text: str) -> str:
+    """收尾规整：去掉末尾悬挂分号/逗号，缺少句末标点时补齐中文句号。"""
+    s = (text or "").strip()
+    if not s:
+        return ""
+    s = _TRAILING_OPEN_PUNCT.sub("", s).strip()
+    if not s:
+        return ""
+    if s[-1] not in _TERMINAL_PUNCT:
+        s += "。"
+    return s
+
+
+def is_footer_noise(text: str) -> bool:
+    """判断文本是否混入了站点页脚/版权/arXivLabs 合规声明等模板噪声。"""
+    return bool(_FOOTER_NOISE_RE.search(text or ""))
+
+
+def strip_footer_noise_us(us: str) -> str:
+    """若「对金风」误抓了站点页脚声明（如 arXivLabs 合作合规要求），清空而非展示脏文案。"""
+    s = (us or "").strip()
+    if not s or is_footer_noise(s):
+        return ""
+    return clean_summary_punctuation(s)
+
+
+def filter_q01(questions: list[str], domain: str, title: str,
+               summary: str, source_name: str = "") -> list[str]:
+    """确定性守卫 Q01（风电AI同行）：未命中能源/风电/同行实体词的通用 AI 条目剔除 Q01。"""
+    if "Q01" not in questions:
+        return list(questions)
+    if domain == "能源AI":
+        return list(questions)
+    haystack = " ".join(part for part in (title, summary, source_name) if part)
+    if _Q01_ENTITY_RE.search(haystack):
+        return list(questions)
+    return [q for q in questions if q != "Q01"]

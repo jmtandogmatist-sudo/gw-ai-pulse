@@ -110,3 +110,37 @@ def test_first_sentence_keeps_version_numbers_whole():
     assert _first_sentence("v1.2 发布. 后续内容") == "v1.2 发布."
     # 没有任何句末标点时原样返回
     assert _first_sentence("OpenAI 发布 o3 模型") == "OpenAI 发布 o3 模型"
+
+
+def test_clean_summary_punctuation_and_clip_semicolon():
+    from collector.enrich import _clip_sentence
+    from collector.textnorm import clean_summary_punctuation
+
+    assert clean_summary_punctuation("支持本地 MCP 接入；") == "支持本地 MCP 接入。"
+    assert clean_summary_punctuation("端侧与拟人化服务入列") == "端侧与拟人化服务入列。"
+    assert clean_summary_punctuation("已经完整。") == "已经完整。"
+    clipped = _clip_sentence("前半句介绍统一接口与本地云端双模式；后半句补充很长很长的说明细节超出截断上限", 25)
+    assert not clipped.endswith("；")
+    assert clipped.endswith("。")
+
+
+def test_strip_footer_noise_and_q01_guard(cfg):
+    from collector.textnorm import filter_q01, strip_footer_noise_us
+
+    assert strip_footer_noise_us("关注 arXivLabs 合作合规要求，确保研发数据隐私符合其价值观。") == ""
+    assert strip_footer_noise_us("降低风电企业私有化部署成本") == "降低风电企业私有化部署成本。"
+
+    # 通用模型收购不应保留 Q01
+    assert filter_q01(["Q01", "Q03"], "选型", "英伟达拟收购扩散式大模型公司", "用于提升推理速度") == ["Q03"]
+    # 真正的风电同行动态保留 Q01
+    assert filter_q01(["Q01", "Q02"], "政策合规", "远景三项目入选人工智能+能源试点", "覆盖电网调度与园区运营") == ["Q01", "Q02"]
+
+    obj = {"keep": True, "domain": "选型", "questions": ["Q01", "Q03"], "topics": [], "relevance": 2,
+           "title": "某芯片厂商拟收购扩散式大模型初创公司以加速推理",
+           "summary": "该架构提升推理吞吐并降低延迟；",
+           "us": "关注 arXivLabs 合作合规要求，确保研发数据隐私符合其价值观。",
+           "event_key": "chip-acq-2026-11-21", "event_date": "2026-11-21"}
+    r = validate_item(obj, cfg)
+    assert r.questions == ["Q03"]
+    assert r.summary.endswith("。")
+    assert r.us == ""

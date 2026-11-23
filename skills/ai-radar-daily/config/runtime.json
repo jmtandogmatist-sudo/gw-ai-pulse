@@ -7,7 +7,7 @@
     "timezone": "Asia/Shanghai",
     "note": "V5.3.0：检索通道触发排程的**声明镜像**。真源是 WorkBuddy 自动化配置 automation-1787192486737 本身；本块由 run.py precheck 每次运行打印，使排程漂移在运行日志里可见。2026-09-08 原为 10:00，后（不晚于 2026-10-10）改为 08:30；含周末——检索每天照常，仅工作日发布。改排程须同步三处文档：SKILL.md §5 / references/retrieval-strategy.md §1 / scripts/self_check.py 的 allowed_event_dates docstring。"
   },
-  "work_dir": "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily",
+  "work_dir": "/Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily",
   "forum": {
     "base_url": "https://aicopilot.goldwind.com.cn:3211",
     "category_id": 15,
@@ -80,15 +80,15 @@
     "stage8": "sync-knowledge（远端五表 + 候选表，前置：所有飞书群 SENT）"
   },
   "paths": {
-    "skill_dir": "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily",
-    "references_dir": "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/references",
-    "scripts_dir": "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/scripts",
-    "env_file": "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/.env",
+    "skill_dir": "/Users/sr_jm/gw_llm_ai_pulse/skills/ai-radar-daily",
+    "references_dir": "/Users/sr_jm/gw_llm_ai_pulse/skills/ai-radar-daily/references",
+    "scripts_dir": "/Users/sr_jm/gw_llm_ai_pulse/skills/ai-radar-daily/scripts",
+    "env_file": "/Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/.env",
     "run_state": "{work_dir}/{issue_id}/run-state.json",
     "judgment_ledger": "{work_dir}/判断台账.json",
     "feishu_state": "{work_dir}/feishu-push-state.json",
-    "feishu_groups": "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/references/feishu-groups.json",
-    "feishu_group_profiles": "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/references/feishu-group-profiles.json",
+    "feishu_groups": "/Users/sr_jm/gw_llm_ai_pulse/skills/ai-radar-daily/references/feishu-groups.json",
+    "feishu_group_profiles": "/Users/sr_jm/gw_llm_ai_pulse/skills/ai-radar-daily/references/feishu-group-profiles.json",
     "feishu_push_profile": "cli_aa942f2aba38dccd",
     "feishu_push_identity": "user"
   },
@@ -116,7 +116,7 @@
     "note": "gw-ai-pulse（2026-11-13）：新设计只发 AI 社区论坛，日报不再推生产飞书群。关闭后阶段 5 直接 SKIPPED、阶段 8 不再校验飞书状态，主链路（检索→成稿→门禁→发布→首页）不依赖飞书；precheck 的二维码/群配置/群画像降为 warn。代码保留，置 true 即恢复旧行为（也可用环境变量 AI_RADAR_FEISHU_PUSH=1 临时开启）。"
   },
   "_gw_pulse": {
-    "root": "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse",
+    "root": "/Users/sr_jm/gw_llm_ai_pulse",
     "created": "2026-11-13",
     "changes_vs_legacy": [
       "work_dir/paths 全部指向 gw-ai-pulse（rebind_paths.py verify 通过）",

@@ -37,6 +37,8 @@ from bs4 import BeautifulSoup
 
 from .config import Config
 from .models import Signal
+from .render import _limit_key, is_research, radar_rank
+from .textnorm import is_footer_noise
 
 log = logging.getLogger("collector.focus")
 
@@ -146,7 +148,7 @@ def fetch_text(url: str, timeout: float = 20, max_chars: int = 8000) -> str:
     blocks, seen = [], set()
     for el in soup.find_all(["h1", "h2", "h3", "p", "li"]):
         t = el.get_text(" ", strip=True)
-        if len(t) < 20:              # 导航、按钮、「阅读全文」这类碎片
+        if len(t) < 20 or is_footer_noise(t):  # 导航碎片或站点页脚/arXivLabs 合规声明
             continue
         key = _norm(t)
         if not key or key in seen:
@@ -306,21 +308,55 @@ def remember(store, event_key: str, now: datetime) -> None:
     store.set_state("focus_history", json.dumps(hist, ensure_ascii=False))
 
 
-def pick(signals: list, cfg: Config, store, now: datetime) -> list:
-    """挑出本轮可以做成焦点的候选，按优先级排好序。"""
+def pick(signals: list, cfg: Config, store, now: datetime,
+         current_focus: Signal | None = None) -> list:
+    """挑出本轮可以做成焦点的候选，按优先级排好序。
+
+    2026-11-20 补两条硬约束：
+    1. 默认排除学术论文（allow_research=false）：企业首页 02「今日焦点」留给产业/厂商/政策事件；
+    2. 传入 current_focus 时，用与首页 update_feed 同一套 radar_rank 先比稿——
+       打不过当前首页焦点的候选直接淘汰，避免花 LLM 成本写完长文却上不了首页。
+    """
     fc = cfg.settings.get("focus") or {}
     hours = int(fc.get("recency_hours", 24))
+    allow_research = bool(fc.get("allow_research", False))
     cutoff = (now - timedelta(hours=hours)).date().isoformat()
     done = recent_keys(store, now=now)
     out = [s for s in signals
            if s.relevance >= 2
            and not s.focus
+           and (allow_research or not is_research(s))
            and s.sources and (s.sources[0].url or "").startswith("http")
            and (s.event_date or s.discovered_at or "")[:10] >= cutoff
            and s.event_key not in done]
+    if current_focus is not None:
+        cur_rank = radar_rank(current_focus, now)
+        out = [s for s in out if radar_rank(s, now) < cur_rank]
+        # 2026-11-23：防止单一二手媒体（tier=media 且 cred=red）连续多轮霸占 02 焦点。
+        # 若当前焦点本身是近 cooldown 小时内的单一二手媒体，同站点的另一条 red 候选
+        # 除非相关度更高（如 relevance=3），否则不抢位；一手/权威/多源（green/yellow）
+        # 或其他站点的候选不受影响。
+        cooldown_h = int(fc.get("media_same_host_cooldown_hours", 0) or 0)
+        if cooldown_h > 0 and _is_single_media(current_focus):
+            cur_ts = _ts(current_focus.published_at or current_focus.event_date or current_focus.discovered_at)
+            now_ts = now.timestamp() if now else 0.0
+            if cur_ts > 0 and (now_ts - cur_ts) < cooldown_h * 3600:
+                cur_host = _limit_key(current_focus)
+                out = [
+                    s for s in out
+                    if not (
+                        _is_single_media(s)
+                        and _limit_key(s) == cur_host
+                        and (s.relevance or 0) <= (current_focus.relevance or 0)
+                    )
+                ]
     stats = host_stats(store)
     out.sort(key=lambda s: _rank_key(s, stats))
     return out
+
+
+def _is_single_media(sig: Signal) -> bool:
+    return bool(sig.sources) and sig.sources[0].tier == "media" and sig.cred == "red"
 
 
 def mark_focus(sig: Signal, art: Article, degraded: bool) -> None:
@@ -433,16 +469,20 @@ def fetch_signal_body(sig: Signal, cfg: Config, fetch=None, store=None):
     return _fetch_body(sig, fc, fetch, store)
 
 
-def build(signals: list, cfg: Config, llm, store, now: datetime, fetch=None) -> Outcome:
+def build(signals: list, cfg: Config, llm, store, now: datetime, fetch=None,
+          current_focus: Signal | None = None) -> Outcome:
     """本轮最多出一篇焦点。返回 Outcome；失败时 sig 为 None，reason 说明原因。"""
     fc = cfg.settings.get("focus") or {}
     out = Outcome()
     if not fc.get("enabled"):
         out.reason = "focus.enabled=false"
         return out
-    cands = pick(signals, cfg, store, now)
+    cands = pick(signals, cfg, store, now, current_focus=current_focus)
     if not cands:
-        out.reason = "本轮没有新的焦点级事件（沿用上一轮焦点）"
+        if current_focus is not None and pick(signals, cfg, store, now, current_focus=None):
+            out.reason = "本轮候选在首页排序中不高于当前焦点（沿用现有焦点）"
+        else:
+            out.reason = "本轮没有新的焦点级事件（沿用上一轮焦点）"
         return out
 
     if fetch is None:

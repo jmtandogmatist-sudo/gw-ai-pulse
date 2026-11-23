@@ -135,23 +135,45 @@ def write_feed_key(forum: Forum, topic_id: int, key: str, value: Any, reason: st
     return {"status": "UPDATED", "post_id": post["id"]}
 
 
+_TAG_DOMAIN = {
+    "energy-ai": "能源AI", "policy": "政策合规", "model-selection": "选型",
+    "tools": "工具做法", "compute": "算力", "security": "安全",
+    "research": "前沿研究", "industry": "行业动态", "internal": "集团动态",
+}
+_SRC_LINE_RE = re.compile(r"^\s*-\s*\[([^\]]+)\]\((https?://[^)]+)\)", re.M)
+_META_DATE_RE = re.compile(r"事件日期\s+(20\d{2}-\d{2}-\d{2})")
+_META_DISC_RE = re.compile(r"采集于\s+(\S+)")
+_META_REL_RE = re.compile(r"相关度：([●○]+)")
+
+
 def signal_from_topic(t: dict, raw: str, base_url: str) -> dict:
-    """把采集器发的信号话题转成档案/雷达用的精简条目。"""
+    """把采集器发的信号话题转成档案/雷达用的精简条目（兼容旧帖机器块与新帖纯正文）。"""
     mach = parse_machine(raw)
     src = (mach.get("sources") or [{}])[0]
+    if not src.get("url"):
+        m_src = _SRC_LINE_RE.search(raw or "")
+        if m_src:
+            src = {"name": m_src.group(1).strip(), "url": m_src.group(2).strip()}
     summ = re.search(r"\*\*摘要\*\*\s*\n\s*\n(.*?)\n\s*\n", raw or "", re.S)
     tags = [x["name"] if isinstance(x, dict) else x for x in t.get("tags") or []]
+    m_date = _META_DATE_RE.search(raw or "")
+    m_disc = _META_DISC_RE.search(raw or "")
+    m_rel = _META_REL_RE.search(raw or "")
+    domain = mach.get("domain") or next((_TAG_DOMAIN[x] for x in tags if x in _TAG_DOMAIN), "")
+    relevance = mach.get("relevance")
+    if relevance is None and m_rel:
+        relevance = m_rel.group(1).count("●")
     return {
         "topic_id": t.get("id"),
         "url": f"{base_url}/t/{t.get('slug') or 'topic'}/{t.get('id')}",
         "title": t.get("title", ""),
-        "date": (mach.get("event_date") or str(t.get("created_at") or "")[:10]),
-        "discovered_at": mach.get("discovered_at") or t.get("created_at"),
+        "date": (mach.get("event_date") or (m_date.group(1) if m_date else "") or str(t.get("created_at") or "")[:10]),
+        "discovered_at": mach.get("discovered_at") or (m_disc.group(1) if m_disc else None) or t.get("created_at"),
         "cred": mach.get("cred") or next((x[5:] for x in tags if x.startswith("cred-")), "red"),
         "review": mach.get("review") or ("reviewed" if "reviewed" in tags else "auto"),
         "questions": mach.get("questions") or [x.upper() for x in tags if re.fullmatch(r"q\d{2}", x)],
-        "domain": mach.get("domain", ""),
-        "relevance": mach.get("relevance"),
+        "domain": domain,
+        "relevance": relevance,
         "source": src.get("name", ""),
         "source_url": src.get("url", ""),
         "summary": re.sub(r"\s+", " ", summ.group(1)).strip() if summ else "",

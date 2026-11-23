@@ -4,13 +4,15 @@ from __future__ import annotations
 import json
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 
 from .config import Config
 from .credibility import CRED_LABEL
 from .models import Signal
 from .textnorm import drop_restating_lead, is_restatement
+
+CST = timezone(timedelta(hours=8))
 
 log = logging.getLogger("collector.render")
 
@@ -46,6 +48,27 @@ CRED_CODE_SHORT = {"green": "g", "yellow": "y", "red": "r"}
 US_OPEN = '[details="AI 研判（自动生成，非公司结论）"]'
 
 
+def _summary_lines(sig: Signal) -> list[str]:
+    """渲染 [wrap=ais-summary] 内部文本。
+
+    有 structured_summary 时输出「摘要（核心进展）+ 关键要点 + 影响与边界」约 300 字结构化内容；
+    第一段紧跟在 **摘要** 空行后，保持与下游正则解析（signal_pool.py / forum.py）完全兼容。
+    没有 structured_summary（抓不到正文降级或旧信号）时退回单段 sig.summary。
+    """
+    ss = sig.structured_summary if isinstance(sig.structured_summary, dict) else {}
+    core = str(ss.get("core") or "").strip()
+    points = [str(p).strip() for p in (ss.get("points") or []) if str(p).strip()]
+    impact = str(ss.get("impact") or "").strip()
+    if not (core and points):
+        return ["[wrap=ais-summary]", "", "**摘要**", "", sig.summary, "", "[/wrap]", ""]
+    lines = ["[wrap=ais-summary]", "", "**摘要**", "", core, "", "**关键要点**", ""]
+    lines += [f"- {p}" for p in points]
+    if impact:
+        lines += ["", "**影响与边界**", "", impact]
+    lines += ["", "[/wrap]", ""]
+    return lines
+
+
 def topic_body(sig: Signal, cfg: Config) -> str:
     """信号话题正文。用 [wrap=ais-*] 分块，主题组件「AI 情报站话题样式」渲染成卡片；没装组件时仍是可读的普通段落。
 
@@ -54,8 +77,8 @@ def topic_body(sig: Signal, cfg: Config) -> str:
     """
     qtext = {q["id"]: q["text"] for q in cfg.questions}
     code = CRED_CODE_SHORT[sig.cred]
-    lines = [f"[wrap=ais-signal cred={code} review={sig.review}]", "",
-             "[wrap=ais-summary]", "", "**摘要**", "", sig.summary, "", "[/wrap]", ""]
+    lines = [f"[wrap=ais-signal cred={code} review={sig.review}]", ""]
+    lines += _summary_lines(sig)
     if sig.us:
         # gw-ai-pulse（2026-11-19）：分类 20 已对全员开放，「对金风」是模型自动研判、
         # 没有任何人工过目（review=auto），不能再以正文段落的形式直出。改成折叠块：
@@ -72,9 +95,8 @@ def topic_body(sig: Signal, cfg: Config) -> str:
     if sig.questions:
         lines += ["", "**回答的问题**", ""]
         lines += [f"- {q} {qtext.get(q, '')}" for q in sig.questions]
-    lines += ["", f"事件日期 {sig.event_date or '未知'} · 采集于 {sig.discovered_at}", "", "[/wrap]", "", "[/wrap]", ""]
-    machine = {k: v for k, v in sig.to_dict().items() if k not in ("summary", "us", "title", "topic_id", "post_id")}
-    lines += [MACHINE_OPEN, "```json", json.dumps(machine, ensure_ascii=False, indent=2), "```", MACHINE_CLOSE, "", "---", FOOTER]
+    lines += ["", f"事件日期 {sig.event_date or '未知'} · 采集于 {sig.discovered_at}", "", "[/wrap]", "", "[/wrap]", "",
+              "---", FOOTER]
     return "\n".join(lines)
 
 
@@ -127,9 +149,7 @@ def topic_body_focus(sig: Signal, cfg: Config) -> str:
     if sig.questions:
         lines += ["", "**回答的问题**", ""]
         lines += [f"- {q} {qtext.get(q, '')}" for q in sig.questions]
-    lines += ["", "[/wrap]", "", "[/wrap]", ""]
-    machine = {k: v for k, v in sig.to_dict().items() if k not in ("summary", "us", "title", "topic_id", "post_id")}
-    lines += [MACHINE_OPEN, "```json", json.dumps(machine, ensure_ascii=False, indent=2), "```", MACHINE_CLOSE, "", "---",
+    lines += ["", "[/wrap]", "", "[/wrap]", "", "---",
               "本篇为「今日焦点」长文：正文由采集器根据原文自动生成，事实与引文列在上面的折叠块里，"
               "以原文为准；「对金风」研判为自动生成，非公司结论。"]
     return "\n".join(lines)
@@ -195,8 +215,8 @@ def public_topic_body(sig: Signal, cfg: Config) -> str:
     """
     qtext = {q["id"]: q["text"] for q in cfg.questions}
     code = CRED_CODE_SHORT[sig.cred]
-    lines = [f"[wrap=ais-signal cred={code} review={sig.review}]", "",
-             "[wrap=ais-summary]", "", "**摘要**", "", sig.summary, "", "[/wrap]", ""]
+    lines = [f"[wrap=ais-signal cred={code} review={sig.review}]", ""]
+    lines += _summary_lines(sig)
     lines += ["[wrap=ais-src]", "", "**来源**", ""]
     for s in sig.sources:
         note = "" if s.reachable else "（公司网络可能打不开）"
@@ -419,12 +439,97 @@ def energy_items(signals: list[Signal], cfg: Config, base_url: str, *,
     return out
 
 
+def is_research(sig: Signal) -> bool:
+    """是否属于学术论文（arXiv 等 tier=research 或 domain=前沿研究）。"""
+    if sig.domain == "前沿研究":
+        return True
+    return bool(sig.sources) and all(s.tier == "research" for s in sig.sources)
+
+
+# 02 右栏「金风 / 能源相关」的强相关词校验。
+# 2026-11-20 生产实测：模型常把 Q01（行业场景）或 Q09（AI 用电）顺手标在泛 AI 收购/机器人论文上，
+# 导致「英伟达收购 Inception」「AgentRoboCritic 机器人论文」占了能源右栏前两位。
+# 规则：domain=能源AI 或 (domain=政策合规 且含 Q02) 直接放行；其余领域即使命中 Q01/Q02/Q09，
+# 也要求标题或首发信源含明确能源/风电/电力词，避免泛 AI 内容混入能源专栏。
+_ENERGY_KW = re.compile(
+    r"风电|风机|风场|风能|绿电|电力|电网|储能|光伏|新能源|虚拟电厂|能源|电厂|水风光|用电|发电|"
+    r"碳排|排放|双碳|零碳|海上风|陆上风|整机|金风|远景|明阳|维斯塔斯|西门子歌美飒|"
+    r"Vestas|GWEC|WindEurope|Offshore|Windpower|Electrek|reNews|GE\s*Vernova|Nordex|Siemens\s*Energy",
+    re.I,
+)
+
+
+def _has_energy_signal(sig: Signal) -> bool:
+    src_name = sig.sources[0].name if sig.sources else ""
+    return bool(_ENERGY_KW.search(f"{sig.title or ''} {src_name}"))
+
+
+def select_radar_signals(
+    signals: list[Signal],
+    *,
+    cap: int,
+    max_papers: int = 0,
+    max_per_source: int = 0,
+    max_per_source_per_day: int = 0,
+) -> list[Signal]:
+    """筛选 03 信号雷达条目（保持传入的 radar_rank 顺序）。
+
+    2026-11-23：此前 03 信号雷达只限制了学术论文数（radar_max_papers），对商业媒体
+    完全不限额，导致周末/周一上午单一媒体（IT之家）占全量 39%、首屏 83%。
+    现在对非一手/非论文信源（media / community）按站点（_limit_key）增加
+    「单日上限 + 窗口总上限」双闸门；官方/监管一手源（official / authority）不限额，
+    学术论文继续由独立的 max_papers 管控，设 0 即关闭对应限制。
+    """
+    out: list[Signal] = []
+    papers = 0
+    host_total: dict[str, int] = {}
+    host_day: dict[tuple[str, str], int] = {}
+    for x in signals:
+        if len(out) >= cap:
+            break
+        if is_research(x):
+            if max_papers > 0 and papers >= max_papers:
+                continue
+            papers += 1
+            out.append(x)
+            continue
+        tier = x.sources[0].tier if x.sources else ""
+        if tier in ("official", "authority"):
+            out.append(x)
+            continue
+        host = _limit_key(x)
+        day = (x.published_at or x.event_date or x.discovered_at or "")[:10]
+        if max_per_source > 0 and host_total.get(host, 0) >= max_per_source:
+            continue
+        if max_per_source_per_day > 0 and day and host_day.get((host, day), 0) >= max_per_source_per_day:
+            continue
+        host_total[host] = host_total.get(host, 0) + 1
+        if day:
+            host_day[(host, day)] = host_day.get((host, day), 0) + 1
+        out.append(x)
+    return out
+
+
 def pick_energy(signals: list[Signal], *, questions: set[str] | None = None,
-                domains: set[str] | None = None, limit: int = 3) -> list[Signal]:
-    """挑出「金风 / 能源相关」的信号，保持传入顺序（调用方已按 radar_rank 排好）。"""
+                domains: set[str] | None = None, limit: int = 3,
+                per_source: int = 0) -> list[Signal]:
+    """挑出「金风 / 能源相关」的信号，保持传入顺序（调用方已按 radar_rank 排好）。
+
+    2026-11-23：新增 per_source（按站点分桶，默认 0=不限兼容旧调用），
+    避免单一媒体占满 02 右栏能源专栏的 2/3 位置。
+    """
     want = questions if questions is not None else {"Q01", "Q02", "Q09"}
     doms = domains if domains is not None else {"能源AI"}
-    return [s for s in signals if (want & set(s.questions or [])) or s.domain in doms][:limit]
+    matched = []
+    for s in signals:
+        qs = set(s.questions or [])
+        if s.domain in doms:
+            matched.append(s)
+        elif s.domain == "政策合规" and "Q02" in qs and ("Q02" in want):
+            matched.append(s)
+        elif (want & qs) and _has_energy_signal(s):
+            matched.append(s)
+    return _diverse(matched, limit, per_source)
 
 
 # ---------- 01 简报 / 02 焦点 ----------
@@ -535,6 +640,10 @@ def _brief_rank(sig: Signal, now: datetime | None = None) -> tuple:
     age = _age_days(sig, now)
     if age >= STALE_DAYS:           # 前天及更早
         tier = 5                    # 过期层：留给新料，这里只做兜底
+    elif is_research(sig):
+        # 2026-11-20：学术论文降到 tier=4（排在今/昨真实行业、厂商、能源新闻之后），
+        # 避免论文靠 relevance=3 抢占 01「今天发生了什么」头条；新闻稀少时仍可自动补位。
+        tier = 4
     elif age >= FRESH_DAYS:         # 昨天
         tier += 1
     tier = min(tier, 5)
@@ -711,17 +820,20 @@ PICK_LIMIT = 120
 def _is_tool_like(sig: Signal) -> bool:
     """是否属于「能上手用」的条目。
 
-    判定顺序（实测校准，2026-11-16）：
-      1. 政策/事件类直接排除——这类内容虽然也常有「发布」「上线」，但读者不能上手做什么
-      2. 领域是「工具做法」直接通过
-      3. 否则要求标题含**工具名词**（开源/框架/技能包/SDK/API/工具/插件/库…）
-         「发布」「上线」这类动词太宽泛，连政策新闻都含，不能单独作为依据
+    判定顺序（2026-11-23 修正误杀）：
+      1. 政策/公告/诉讼/财报/排名/纯讨论（_HARD_NOT_PICK）直接排除
+      2. 领域是「工具做法」直接通过——不再被「曝光」「警告」等常规新闻动词误杀
+         （2026-11-23 实测：DeepSeek V1 作者开源 Agent 因含「曝光」、Anthropic Claude Code
+         更新因含「Hook 安全警告」被误杀，导致近 2 天工具候选池归零、整块退回 3 天前老数据）
+      3. 其余领域排除传闻/非实操动词（_RUMOR_NOT_PICK）后，要求标题含明确工具名词
     """
     title = sig.title or ""
-    if _NOT_PICK.search(title):
+    if _HARD_NOT_PICK.search(title):
         return False
     if sig.domain == "工具做法":
         return True
+    if _RUMOR_NOT_PICK.search(title):
+        return False
     return bool(_TOOL_NOUN.search(title))
 
 
@@ -732,18 +844,48 @@ _TOOL_NOUN = re.compile(
     r"开源|框架|技能包|SDK|CLI|插件|工具|工作流|模板|基准|API|接口|驱动|内核",
     re.I,
 )
-# 政策/事件/传闻类：读者不能上手，或不是事实陈述
-_NOT_PICK = re.compile(
-    r"热议|讨论|传闻|据悉|或将|可能|曝光|起诉|诉讼|称|警告|披露|宣布将|宣言|联合声明"
+# 硬排除：政策公告/诉讼/行情/人事/排名/纯讨论，即使带工具词也不是可上手条目
+_HARD_NOT_PICK = re.compile(
+    r"热议|讨论|起诉|诉讼"
     r"|网信办|国家能源局|发改委|工信部|公示|备案|通知|公告|征求意见|法案|条例|试点|清单"
     r"|周榜|排名|登顶|市值|股价|财报|营收|辞职|离职|招聘"
 )
+# 传闻/非实操类：仅用于非「工具做法」领域的二次过滤，避免误杀工具更新里的「安全警告」「项目曝光」
+_RUMOR_NOT_PICK = re.compile(
+    r"传闻|据悉|或将|可能|曝光|称|警告|披露|宣布将|宣言|联合声明"
+)
+
+
+def _within_hours(sig: Signal, now: datetime, max_age_hours: int) -> bool:
+    """信号发布时间是否落在最近 max_age_hours 小时内。"""
+    base = now if now.tzinfo is not None else now.replace(tzinfo=CST)
+    cutoff = base - timedelta(hours=max_age_hours)
+    pub = (sig.published_at or "").strip()
+    if len(pub) > 10:
+        try:
+            dt = datetime.fromisoformat(pub.replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=CST)
+            return dt >= cutoff
+        except ValueError:
+            pass
+    day = (sig.event_date or pub or sig.discovered_at or "")[:10]
+    if not day:
+        return False
+    return day >= cutoff.date().isoformat()
 
 
 def pick_items(signals: list[Signal], limit: int = PICKS_MAX,
-               now: datetime | None = None, per_source: int = 0) -> list[dict]:
-    """今日值得看：挑可落地的工具与做法。没有合适的就返回空列表（首页少一块，不留占位）。"""
+               now: datetime | None = None, per_source: int = 0,
+               max_age_hours: int = 0) -> list[dict]:
+    """今日值得看：挑可落地的工具与做法。没有合适的就返回空列表（首页少一块，不留占位）。
+
+    2026-11-23：新增 max_age_hours 硬性新鲜度闸门（>0 且传入 now 时生效），
+    禁止用 3 天前的老数据硬填「今日值得看」；并在输出中附带 when（YYYY-MM-DD）供前端展示。
+    """
     pool = [s for s in signals if _is_tool_like(s)]
+    if max_age_hours > 0 and now is not None:
+        pool = [s for s in pool if _within_hours(s, now, max_age_hours)]
     if not pool:
         return []
     # 可信度优先，其次发布日期新；per_source 防止一家的插件仓库刷满四格
@@ -758,13 +900,14 @@ def pick_items(signals: list[Signal], limit: int = PICKS_MAX,
             "title": _clip(_strip_date_suffix(s.title), PICK_LIMIT),
             "summary": _clip(_first_sentence(s.summary, 100), 100),
             "url": src.url,
+            "when": (s.published_at or s.event_date or s.discovered_at or "")[:10],
         })
     return out
 
 
 def picks_excluding(signals: list[Signal], *, exclude: list[Signal],
                     limit: int = PICKS_MAX, now: datetime | None = None,
-                    per_source: int = 0) -> list[dict]:
+                    per_source: int = 0, max_age_hours: int = 0) -> list[dict]:
     """04「今日值得看」，但排掉已经上过 01 简报 / 02 焦点的条目。
 
     gw-ai-pulse（2026-11-20）：01 与 04 原先各自从整个信号池里挑，谁也不看谁，
@@ -779,4 +922,4 @@ def picks_excluding(signals: list[Signal], *, exclude: list[Signal],
     pool = [s for s in signals
             if id(s) not in excluded_ids
             and not any(src.url in excluded_urls for src in getattr(s, "sources", []))]
-    return pick_items(pool, limit, now=now, per_source=per_source)
+    return pick_items(pool, limit, now=now, per_source=per_source, max_age_hours=max_age_hours)

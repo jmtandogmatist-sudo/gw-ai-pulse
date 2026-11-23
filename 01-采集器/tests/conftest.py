@@ -31,6 +31,8 @@ def cfg(tmp_path):
     # gw-ai-pulse（2026-11-19）：今日焦点长文默认关掉——它要抓真实网页，
     # 单测里必须离线。验证焦点链路的用例自己打开并替换 collector.focus.fetch_text。
     settings.setdefault("focus", {})["enabled"] = False
+    # gw-ai-pulse（2026-11-20）：普通信号结构化摘要同样要抓原文网页，单测默认关掉。
+    settings.setdefault("structured_summary", {})["enabled"] = False
     (tmp_path / "config" / "settings.yaml").write_text(yaml.safe_dump(settings, allow_unicode=True), encoding="utf-8")
     sources = {"sources": [
         {"name": "测试媒体", "module": "ext_ai", "kind": "rss", "url": f"file://{FIX / 'rss.xml'}",

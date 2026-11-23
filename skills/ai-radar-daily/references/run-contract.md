@@ -7,9 +7,9 @@
   "issue_id": "AI-RADAR-2026-09-03",
   "report_date": "2026-09-03",
   "timezone": "Asia/Shanghai",
-  "skill_dir": "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily",
-  "work_dir": "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily",
-  "env_file": "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/.env",
+  "skill_dir": "/Users/sr_jm/gw_llm_ai_pulse/skills/ai-radar-daily",
+  "work_dir": "/Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily",
+  "env_file": "/Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/.env",
   "mode": "normal"
 }
 ```

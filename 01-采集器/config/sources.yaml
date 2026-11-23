@@ -299,6 +299,18 @@ sources:
   url: https://hunyuan.tencent.com/
   enabled: true
   verified: false
+- id: tencent-hunyuan-github
+  name: 腾讯混元 · GitHub 开源
+  module: ext_ai
+  kind: github_org
+  tier: official
+  default_domain: 选型
+  questions: *id001
+  org: Tencent-Hunyuan
+  max_items: 10
+  enabled: true
+  verified: true
+  note: 2026-11-20 补齐腾讯混元一手开源通道（官网无 RSS 且为 JS 渲染，改抓 GitHub 官方组织最新推送仓库，如 Hy4 / Hy4-flash）
   note: 2026-10-30 验证：前端渲染不可直读，需浏览器打开
 - id: mcp-spec
   name: MCP 生态
@@ -347,17 +359,12 @@ sources:
   questions:
   - Q01
   - Q04
-  url: http://export.arxiv.org/api/query?search_query=cat:cs.AI+OR+cat:cs.CL&sortBy=submittedDate&sortOrder=descending&max_results=1200
-  # 2026-11-20：改为「按时间取」而不是「按条数取」。
-  # 证据：2611.22299（自改进 Agent Harness，11-17 06:55Z 提交）在现有配置下永远看不到——
-  # 当期窗口只有 2.3 小时；要覆盖 24h 需 242 条、72h 需 400+ 条；它在今天最新 400 条之外 41 分钟。
-  # 窗口按时间取，条数按「能覆盖窗口」给足：实测 600 条约覆盖 51 小时，含 API 约 1.5 天延迟。
-  # 之所以敢给到 600：候选台账（store.judged，2026-11-20）让判过的条目在 72 小时内不再重判，
-  # 所以只有首轮贵，之后每轮只判真正新增的几十条。
-  # 2026-11-20 修正：600 条实测只覆盖 51 小时 < 72h 门禁，2611.22299 在两小时后又滑出窗口。
-  # 1200 条覆盖 ~96 小时，正好盖住「72h 门禁 + arXiv 约 1.5 天延迟」；重复部分由 judged 台账挡住。
-  date_window_days: 4
-  max_items: 1200
+  url: https://export.arxiv.org/api/query?search_query=cat:cs.AI+OR+cat:cs.CL&sortBy=submittedDate&sortOrder=descending&max_results=600
+  # 2026-11-23：改为 https 直连、收窄到 3 天 / 600 条并把读超时提到 45s。
+  # 原 1200 条 + 20s 默认超时在 11-21~11-23 连续 4/7 轮触发 429 或 Read timed out。
+  date_window_days: 3
+  max_items: 600
+  timeout_seconds: 45
   enabled: true
   verified: false
 - id: github-trending
@@ -1254,3 +1261,164 @@ sources:
   enabled: false
   verified: true
   note: 391 条新闻页可解析，但整站无 lastmod，只能靠 URL 日期戳判断新鲜度。等核实再开。
+
+# ---------- 2026-11-23 扩源：稀释单一媒体垄断、补齐国内厂商一手开源与工程实操供给 ----------
+- id: qwen-github
+  name: 阿里 Qwen · GitHub 开源
+  module: ext_ai
+  kind: github_org
+  tier: official
+  default_domain: 工具做法
+  questions: [Q03, Q04]
+  org: QwenLM
+  max_items: 10
+  enabled: true
+  verified: true
+  note: 2026-11-23 实测可达（QwenLM/qwen-code 当日更新）；补齐阿里通义一手开源通道
+
+- id: deepseek-github
+  name: DeepSeek · GitHub 开源
+  module: ext_ai
+  kind: github_org
+  tier: official
+  default_domain: 工具做法
+  questions: [Q03, Q04]
+  org: deepseek-ai
+  max_items: 10
+  enabled: true
+  verified: true
+  note: 2026-11-23 实测可达（deepseek-ai/deepseek-harness 昨日更新）；补齐 DeepSeek 一手开源通道
+
+- id: moonshot-github
+  name: 月之暗面 · GitHub 开源
+  module: ext_ai
+  kind: github_org
+  tier: official
+  default_domain: 工具做法
+  questions: [Q03, Q04]
+  org: MoonshotAI
+  max_items: 10
+  enabled: true
+  verified: true
+  note: 2026-11-23 实测可达（MoonshotAI/kimi-code 当日更新）；补齐 Kimi 一手开源通道
+
+- id: bytedance-seed-github
+  name: 字节豆包 Seed · GitHub 开源
+  module: ext_ai
+  kind: github_org
+  tier: official
+  default_domain: 工具做法
+  questions: [Q03, Q04]
+  org: ByteDance-Seed
+  max_items: 10
+  enabled: true
+  verified: true
+  note: 2026-11-23 实测可达（ByteDance-Seed/VeOmni 昨日更新）；补齐字节 Seed 一手开源通道
+
+- id: zhipu-github
+  name: 智谱 · GitHub 开源
+  module: ext_ai
+  kind: github_org
+  tier: official
+  default_domain: 工具做法
+  questions: [Q03, Q04]
+  org: zai-org
+  max_items: 10
+  enabled: true
+  verified: true
+  note: 2026-11-23 实测可达（zai-org/zcode-plugins）；补齐智谱一手开源通道
+
+- id: minimax-github
+  name: MiniMax · GitHub 开源
+  module: ext_ai
+  kind: github_org
+  tier: official
+  default_domain: 工具做法
+  questions: [Q03, Q04]
+  org: MiniMax-AI
+  max_items: 10
+  enabled: true
+  verified: true
+  note: 2026-11-23 实测可达（MiniMax-AI/Research）；补齐 MiniMax 一手开源通道
+
+- id: infoq-cn
+  name: InfoQ 中文
+  module: ext_ai
+  kind: rss
+  tier: media
+  default_domain: 工具做法
+  questions: [Q03, Q04, Q08]
+  url: https://www.infoq.cn/feed
+  keywords: [AI, 人工智能, 大模型, 智能体, Agent, LLM, MCP, 算力, 芯片, 开源, Claude, OpenAI, DeepSeek, Qwen, Gemini]
+  max_items: 20
+  enabled: true
+  verified: true
+  note: 2026-11-23 实测 200 OK（20 条当日更新），工程实践与架构密度高
+
+- id: oschina-ai
+  name: 开源中国 · AI
+  module: ext_ai
+  kind: rss
+  tier: media
+  default_domain: 工具做法
+  questions: [Q04, Q08]
+  url: https://www.oschina.net/news/rss
+  keywords: [AI, 人工智能, 大模型, 智能体, Agent, LLM, MCP, 算力, DeepSeek, Qwen, Claude, OpenAI, Gemini, 框架, SDK]
+  max_items: 30
+  enabled: true
+  verified: true
+  note: 2026-11-23 实测 200 OK（50 条当日更新），补充中文开源工具与「今日值得看」新鲜供给
+
+- id: geekpark-ai
+  name: 极客公园 · AI
+  module: ext_ai
+  kind: rss
+  tier: media
+  default_domain: 行业动态
+  questions: [Q03, Q04, Q09]
+  url: https://www.geekpark.net/rss
+  keywords: [AI, 人工智能, 大模型, 智能体, Agent, 算力, 芯片, OpenAI, Claude, DeepSeek, 英伟达, 机器人]
+  max_items: 20
+  enabled: true
+  verified: true
+  note: 2026-11-23 实测 200 OK（30 条当日更新），中文科技媒体稀释 IT之家占比
+
+- id: techcrunch-ai
+  name: TechCrunch AI
+  module: ext_ai
+  kind: rss
+  tier: media
+  default_domain: 行业动态
+  questions: [Q03, Q04, Q09]
+  url: https://techcrunch.com/category/artificial-intelligence/feed/
+  max_items: 20
+  enabled: true
+  verified: true
+  note: 2026-11-23 实测 200 OK（20 条当日更新），纯 AI 垂直英文快讯，覆盖欧美周末动态
+
+- id: verge-ai
+  name: The Verge AI
+  module: ext_ai
+  kind: atom
+  tier: media
+  default_domain: 行业动态
+  questions: [Q03, Q04]
+  url: https://www.theverge.com/rss/ai-artificial-intelligence/index.xml
+  max_items: 15
+  enabled: true
+  verified: true
+  note: 2026-11-23 实测 200 OK（10 条近 24h 更新），纯 AI 垂直英文频道
+
+- id: simon-willison
+  name: Simon Willison
+  module: ext_ai
+  kind: atom
+  tier: community
+  default_domain: 工具做法
+  questions: [Q04]
+  url: https://simonwillison.net/atom/everything/
+  keywords: default
+  max_items: 20
+  enabled: true
+  verified: true
+  note: 2026-11-23 实测 200 OK（30 条近 24h 更新），高质量 LLM 工程与工具实操源

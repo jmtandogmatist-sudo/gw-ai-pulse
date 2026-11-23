@@ -23,16 +23,21 @@ __pycache__/
 01-采集器/state/*.sqlite-shm
 01-采集器/state/*.sqlite.bak-*
 01-采集器/state/*.attempt-*
+01-采集器/state/collector.db
+01-采集器/state/date_cache.json
 01-采集器/state/run.lock
+01-采集器/state/feed632.lock
 01-采集器/state/backups/
 
-# ---- 日志与试运行产物 ----
+# ---- 日志与运行产物 ----
 01-采集器/logs/
+02-深度简报/output/
 logs/
 
-# ---- 打包产物（由 work/theme19 构建，可重打）----
+# ---- 打包产物（由 work/ 构建，可重打）----
 dist/*.zip
 dist/*.sha256
+gw-ai-pulse.zip
 
 # ---- 迁移快照与旧归档（体积大、非活代码）----
 _rebind-backup/

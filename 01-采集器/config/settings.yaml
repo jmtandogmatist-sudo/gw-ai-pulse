@@ -75,8 +75,19 @@ round:
   # 为什么必须有：08:00 那一轮卡在网络/限速睡眠里 43 分钟，进程既不报错也不退出，
   # 锁一直被占着，后面两轮启动即跳过——首页一整天不更新，而日志里连一句失败都没有。
   # 正常一轮 3–8 分钟，20 分钟足够宽松；0 = 不设上限。
-  max_seconds: 1200
-  window_hours: 72                       # 只收 72 小时内的新闻
+  #
+  # 2026-11-20 抬到 30 分钟：arXiv 改成「按时间取 748 条/65 小时」后，**部署后的首轮**
+  # 要把积压的论文全判一遍，实测 994 秒（16.6 分钟），离 1200 秒只剩 200 秒余量——
+  # 而首轮恰好是最需要跑完的一轮（否则当天论文全部顺延到下一轮，又是 16 分钟）。
+  # 稳态（台账复用 verdict 生效后）实测 227 秒，不受影响。
+  max_seconds: 1800
+  # 论文（tier=research）每轮最多发几条。2026-11-20 换判据后论文保留量从 0 变成 182 条/轮，
+  # 10 条/轮（一天 30 条）在生产实测中导致当日 69% 发帖全是论文、且大量 11-17/18 旧论文刚发完
+  # 就被首页 32K 预算截断。降到 3 条/轮，并叠加 36h 新鲜度与相关度=3 硬闸门，只留最新高价值论文。
+  max_paper_posts_per_round: 3
+  paper_window_hours: 36                 # 论文只发近 36h（今天/昨天），避免 2–3 天积压旧论文发完即沉底
+  paper_min_relevance: 3                 # 论文仅发高相关度（3）；新闻仍沿用 min_relevance_to_post=2
+  window_hours: 48                       # 2026-11-23：72 → 48；已 7 天×3 轮运行，聚焦今天+昨天，杜绝 3 天前旧文发新帖
   # gw-ai-pulse（2026-11-16）：published_at 为空的条目此前完全绕过 72h 窗口（`if c.published_at and ...` 短路），
   # 导致 2026-10-30 的网信办公告被当新信号发布。现在先从 URL 日期戳补日期；
   # 仍提不出日期的按此策略处理：drop = 不入池（默认，无法证明新鲜就不收）；keep = 放行并单独计数
@@ -90,6 +101,7 @@ round:
   title_dedup_ambiguous: 0.60            # 介于二者之间记待人工（设 0 关闭该区间）
   title_dedup_days: 3                    # 与近几天已发信号比对
   min_relevance_to_post: 2               # gw-ai-pulse P2：1 会灌入股价/人事/财报类噪声；2 = 值得相关团队知道
+  low_supply_today_floor: 6              # 2026-11-23：当日信号不足 6 条时，提拔今日高价值 rel=1 信号补位（单站 ≤2），避免雷达全显昨天数据
   max_posts_per_round: 30               # gw-ai-pulse P2 验证已通过（2026-11-13 实跑 5 条），恢复 30
   merge_window_days: 14                  # 同一事件只合并进 14 天内的旧话题
   source_fail_alert_after: 3             # 单个信源连续失败几轮后告警一次
@@ -165,8 +177,18 @@ keep_bypass:
     # 加回后跑 python -m collector check-config，覆盖检查会告诉你它是不是真的能被抓。
     - OpenAI / Codex
     - Anthropic / Claude
+    - Claude 资源中心
     - Google DeepMind / Gemini
+    - Hugging Face
+    - NVIDIA 官方博客
     - DSH 主仓库
+    - 腾讯混元 · GitHub 开源
+    - 阿里 Qwen · GitHub 开源
+    - DeepSeek · GitHub 开源
+    - 月之暗面 · GitHub 开源
+    - 字节豆包 Seed · GitHub 开源
+    - 智谱 · GitHub 开源
+    - MiniMax · GitHub 开源
     # 监管与政策原文（一手）
     - 国家网信办
     - 国家能源局
@@ -175,6 +197,7 @@ keep_bypass:
     # 行业机构与整机厂官方（一手）
     - GWEC 全球风能理事会
     - 新华网 · 能源频道
+    - 东方电气
     # 2026-11-19：随信源产出审计移出 6 家 —— DeepSeek 官方更新日志、WindEurope、
     # BNEF、GE Vernova、Nordex、东方电气。它们在 sources.yaml 里已停用（27-28 轮 0 产出），
     # 白名单留着只会让 check-config 报「登记了但抓不到」，也让「一手源覆盖」虚高。
@@ -190,7 +213,9 @@ keep_bypass:
 # 任何一步失败都退回一句话 summary —— 焦点不能成为新的单点故障。
 focus:
   enabled: true
+  allow_research: false      # 学术论文（arXiv 等）不作为首页 02「今日焦点」，焦点留给产业/厂商/政策事件
   recency_hours: 24          # 焦点候选必须是这么多小时内的事件
+  media_same_host_cooldown_hours: 24   # 2026-11-23：单一二手媒体（red）连续占焦点位的冷却时长，避免同一媒体连霸 4 轮
   max_tries: 3               # 顺位最多试几条候选（正文抓不到/校验不过就换下一条）
   fetch_timeout_seconds: 20
   fetch_max_chars: 8000      # 送进模型的正文上限；太长会挤掉模型的注意力
@@ -202,20 +227,42 @@ focus:
   llm_max_tokens: 1600
   tag: focus                 # 焦点话题额外的论坛标签，用于筛选与后续归档
 
+# gw-ai-pulse（2026-11-20）普通信号的结构化摘要精炼（~300 字）。
+# 只对过门槛待发帖的非焦点信号抓原文正文，输出「核心进展 + 关键要点 + 影响与边界」；
+# 抓不到正文（403 / JS 渲染）或校验不通过时自动降级回原简短摘要，绝不凭标题硬编。
+# 帖子正文展示完整结构化内容；首页 632 的 radar[].summary 保留精炼核心段（≤140 字）。
+structured_summary:
+  enabled: true
+  min_relevance: 2           # 仅对达到该相关度的待发帖普通信号启用
+  fetch_timeout_seconds: 15  # 单条抓正文超时（秒）
+  fetch_max_chars: 6000      # 送进模型的正文上限
+  min_body_chars: 200        # 抽出的正文短于此字数视为抓取失败，降级回简版
+  skip_host_after_fails: 2   # 连续失败且从未成功过的站点直接跳过，不白等超时
+  target_min_chars: 160      # 校验下限：低于此字数说明提炼不足，降级回简版
+  target_max_chars: 460      # 校验上限：留出英文专有名词余量，避免正常 300 字中文被生硬截断
+  llm_timeout_seconds: 45
+  llm_max_tokens: 900
+
 feed:
   enabled: true                          # gw-ai-pulse P2：采集器每轮直写 632 的 radar 字段（只改 radar*，其余原样保留）
   topic_id: 632
-  window_hours: 72
+  window_hours: 48                       # 2026-11-23：72 → 48；首页信号雷达只展示今天+昨天，与历史周更主题追踪解耦
   # gw-ai-pulse（2026-11-17）：60 → 40。
   # 事故：Discourse 拒绝 >32000 字符的正文，而 radar 无上限增长，2026-11-17 15:03
   # 涨到 33950 字符 → 整篇写入 422 → 首页整天不刷新，采集器却记 feed_updated=false 看起来「正常」。
   # 72 小时窗口内实际也就 38 条，40 足够；再配合 render.write_feed 的兜底二分收缩，
   # 无论数据怎么长都不会再因超长而写失败。
   max_items: 40
+  radar_max_papers: 6                    # 03 信号雷达中学术论文上限（避免论文淹没行业/厂商/能源信号）
+  # 2026-11-23：03 信号雷达同站点双闸门（非论文信源按 host 分桶；设 0 = 关闭）。
+  # 解决单一商业媒体（IT之家）占全量 39%、首屏 83% 的垄断问题。
+  radar_max_per_source: 4                # 72h 窗口内同一站点最多进雷达 4 条
+  radar_max_per_source_per_day: 2        # 同一自然日内同一站点最多进雷达 2 条
   # gw-ai-pulse（2026-11-19）：同源限额。IT之家一轮 27 条、一天 3 轮，不限额时
   # 01 的三条、02 的焦点全是它。设 0 = 回退旧行为（不限）。
   brief_max_per_source: 1                # 01 今天发生了什么 / 02 今日焦点 / 今日主线
   picks_max_per_source: 2                # 04 今日值得看（防止一家插件仓库刷满整块；按站点分桶）
+  picks_max_age_hours: 48                # 2026-11-23：「今日值得看」硬新鲜度上限（小时），禁止拿 3 天前老数据兜底
   summary_limit: 320                     # 每条 summary 的字符上限（与前端 LIMITS.summary 一致）
   cred_format: code                      # g / y / r，与首页组件 v0.2 的 ai-pulse-feed.js 一致；不要改
   sample_file: tests/fixtures/feed_632.md   # 试运行时模拟底座帖的初始内容
@@ -228,6 +275,7 @@ feed:
   energy:
     enabled: true
     count: 3
+    max_per_source: 1                    # 2026-11-23：同站点最多占 1 格，避免单一媒体占 2/3
     questions: ["Q01", "Q02", "Q09"]
     domains: ["能源AI"]
 
@@ -235,6 +283,10 @@ feed:
 # 以及给主题档案统计「本周 +N」。日报停用后这两块不再由编辑手写。
 community:
   enabled: true
+  # 2026-11-23：AI 雷达页已删除 05「社区精选」与 06「栏目更新」模块。
+  # 保留社区扫描与 tag_posts（供 04「主题追踪」统计本周社区帖），但不再向 632 写入
+  # community / question 字段，也省去每轮 5 次补作者的额外 API 请求与约 2KB 底座帖预算。
+  write_to_feed: false
   per_category: 8          # 每个分类取最新几篇候选
   # gw-ai-pulse（2026-11-16）实测：全社区 42 篇公开帖，近 3 天 0 篇、近 7 天 2 篇、近 14 天 10 篇。
   # 7 天太紧，首页这块会只剩两条；14 天能让「社区今日」保持 5 条且都是当月内容。

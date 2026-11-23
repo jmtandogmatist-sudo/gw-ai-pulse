@@ -195,7 +195,8 @@ def test_topic_render_roundtrip(cfg):
                  sources=[SourceRef("arXiv", "https://arxiv.org/abs/1", "research")])
     body = topic_body(sig, cfg)
     assert "摘要由 AI 生成" in body and "Q07" in body
-    assert parse_machine_block(body)["event_key"] == "x-launch-2026-11-05"
+    assert "机器可读数据" not in body
+    assert parse_machine_block(body) is None
     assert topic_tags(sig, cfg) == ["security", "q07", "topic-agent-security", "cred-red", "auto"]
 
 

@@ -28,9 +28,9 @@ agent_created: true
 issue_id: "AI-RADAR-YYYY-MM-DD"
 report_date: "YYYY-MM-DD"
 timezone: "Asia/Shanghai"
-skill_dir: "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily"
-work_dir: "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily"
-env_file: "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/.env"
+skill_dir: "/Users/sr_jm/gw_llm_ai_pulse/skills/ai-radar-daily"
+work_dir: "/Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily"
+env_file: "/Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/.env"
 mode: "normal|backfill|revise|resume|holiday-batch"
 ```
 
@@ -99,7 +99,7 @@ mode: "normal|backfill|revise|resume|holiday-batch"
 ## 5.3 每日检索流水线（V4.3 起；V5.0 增加社区信号层）
 
 ```bash
-R=/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/scripts; D=YYYY-MM-DD
+R=/Users/sr_jm/gw_llm_ai_pulse/skills/ai-radar-daily/scripts; D=YYYY-MM-DD
 python3 $R/run.py precheck        --report-date $D            # 只读环境体检
 python3 $R/run.py recover-missed  --report-date $D            # exit 5 = 有缺跑日，先逐日补检入池
 python3 $R/signal_pool.py         --report-date $D            # 5.3.0：读论坛信号库（采集器已抓好、打好标签）→ _源抓取.json
@@ -218,9 +218,9 @@ python3 $R/run.py settle          --report-date $D --confirm  # 精编按重要�
   run-state、不发帖、不发消息、不写 Base；**凭据只校验键名，绝不回显值**。检查项：
 
 ```bash
-python3 /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/scripts/run.py precheck \
+python3 /Users/sr_jm/gw_llm_ai_pulse/skills/ai-radar-daily/scripts/run.py precheck \
   --report-date YYYY-MM-DD \
-  --env-file /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/.env
+  --env-file /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/.env
 ```
 
   | 检查项 | 内容 | 失败级别 |
@@ -247,10 +247,10 @@ python3 /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/scripts/
 - 运行绝对路径示例：
 
 ```bash
-python3 /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/scripts/fetch_recent.py 2 \
+python3 /Users/sr_jm/gw_llm_ai_pulse/skills/ai-radar-daily/scripts/fetch_recent.py 2 \
   --report-date YYYY-MM-DD --timezone Asia/Shanghai \
-  --env-file /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/.env \
-  --output /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD_近期去重.json
+  --env-file /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/.env \
+  --output /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD_近期去重.json
 ```
 
 ### 阶段 3：证据核验与编辑判断
@@ -281,28 +281,28 @@ python3 /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/scripts/
 - 绝对路径示例：
 
 ```bash
-python3 /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/scripts/preflight_check.py \
-  /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD.md \
-  --semantic-review /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD_语义复核.json \
-  --search-log /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD_检索清单.json \
-  --self-check-report /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD_自查报告.md \
-  --run-state /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/AI-RADAR-YYYY-MM-DD/run-state.json \
+python3 /Users/sr_jm/gw_llm_ai_pulse/skills/ai-radar-daily/scripts/preflight_check.py \
+  /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD.md \
+  --semantic-review /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD_语义复核.json \
+  --search-log /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD_检索清单.json \
+  --self-check-report /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD_自查报告.md \
+  --run-state /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/AI-RADAR-YYYY-MM-DD/run-state.json \
   --package-dry-run \
   --report-date YYYY-MM-DD --timezone Asia/Shanghai \
-  --report /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/AI-RADAR-YYYY-MM-DD/preflight-report.json
+  --report /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/AI-RADAR-YYYY-MM-DD/preflight-report.json
 
-python3 /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/scripts/self_check.py \
-  /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD.md \
-  --semantic-review /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD_语义复核.json \
-  --search-log /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD_检索清单.json \
-  --cover /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD_封面.png \
-  --qr1 /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/群二维码_本地大模型.png \
-  --qr2 /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/群二维码_Dify平台.png \
-  --qr3 /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/群二维码_金风科技.png \
-  --recent-data /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD_近期去重.json \
+python3 /Users/sr_jm/gw_llm_ai_pulse/skills/ai-radar-daily/scripts/self_check.py \
+  /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD.md \
+  --semantic-review /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD_语义复核.json \
+  --search-log /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD_检索清单.json \
+  --cover /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD_封面.png \
+  --qr1 /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/群二维码_本地大模型.png \
+  --qr2 /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/群二维码_Dify平台.png \
+  --qr3 /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/群二维码_金风科技.png \
+  --recent-data /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD_近期去重.json \
   --report-date YYYY-MM-DD --timezone Asia/Shanghai \
   --require-evidence-receipts \
-  --report /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD_自查报告.md
+  --report /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD_自查报告.md
 ```
 
 > V4.3 更正：`self_check.py` 只接收 `--qr1/--qr2/--qr3`（argparse 占位，6 码齐备由正文 `[grid]` 校验）；旧示例中的 `--qr4/--qr5/--qr6` 会报 `unrecognized arguments`。`--qr4..6` 只属于 `publish.py`。优先用 `run.py self-check`，它已传对参数。
@@ -322,19 +322,19 @@ python3 /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/scripts/
 - **维护纪律（2026-09-22 教训）**：修改本文档的调用示例时，**必须同步核对脚本的 `argparse` 真实签名**并用真实参数过一遍 parser——文档与脚本口径分裂会形成"看起来对的陷阱"：越严格遵循文档，越会踩中错误。群名清单的单一权威是脚本常量 `publish.QR_GROUP_NAMES`，模板 `[grid]` 与它由测试 `test_qr_group_names_match_template_order` 锁定一致，改任一处须同步另一处。
 
 ```bash
-python3 /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/scripts/publish.py \
-  /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD.md \
-  /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD_封面.png \
-  /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/群二维码_本地大模型.png \
-  /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/群二维码_Dify平台.png \
-  /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/群二维码_金风科技.png \
-  /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD_自查报告.md \
-  --qr4 /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/群二维码_KNS.png \
-  --qr5 /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/群二维码_标准化助手.png \
-  --qr6 /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/群二维码_风衍大模型.jpeg \
+python3 /Users/sr_jm/gw_llm_ai_pulse/skills/ai-radar-daily/scripts/publish.py \
+  /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD.md \
+  /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD_封面.png \
+  /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/群二维码_本地大模型.png \
+  /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/群二维码_Dify平台.png \
+  /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/群二维码_金风科技.png \
+  /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/AI雷达日报_YYYY-MM-DD_自查报告.md \
+  --qr4 /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/群二维码_KNS.png \
+  --qr5 /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/群二维码_标准化助手.png \
+  --qr6 /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/群二维码_风衍大模型.jpeg \
   --report-date YYYY-MM-DD --timezone Asia/Shanghai \
-  --env-file /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/.env \
-  --state-file /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/AI-RADAR-YYYY-MM-DD/publish-state.json
+  --env-file /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/.env \
+  --state-file /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/AI-RADAR-YYYY-MM-DD/publish-state.json
 ```
 
 - 修订前先回读 topic，取得首帖真实 `post_id`；禁止把 `topic_id` 当 `post_id`。
@@ -356,9 +356,9 @@ python3 /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/scripts/
 - **累积出刊的推送标注（V3.9.0 改口径）**：跨日累积出刊时，群推送文案必须显式标注累积期，避免把多日积压说成「今日/昨日」，口径失实。**权威来源已从正文迁至检索清单 `publication_metadata`**（`{"is_accumulated","span","count"}`）；`prepare_feishu_push.py` 的 `resolve_accumulation()` 按「metadata 优先 → 正文遗留行兜底」解析，累积出刊时推送标题追加「·累积出刊」并在标题下插入累积期说明；日常单期不设置该节点、不加标注。正文遗留的累积行正则（`parse_accumulation`）仅作历史兼容保留。
 
 ```bash
-python3 /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/scripts/run.py settle \
+python3 /Users/sr_jm/gw_llm_ai_pulse/skills/ai-radar-daily/scripts/run.py settle \
   --report-date YYYY-MM-DD --confirm \
-  --env-file /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/.env
+  --env-file /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/.env
 ```
 
 ### 阶段 6B：论坛首页数据（5.2.0）
@@ -372,8 +372,8 @@ python3 /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/scripts/
 - **5.3.0 合并写入**：底座帖由四方共同维护——采集器每轮写 `radar` / `radar_updated_at` / `radar_next_at` / `radar_total` / `question_list`，主题档案 skill 每周写 `topics`，技术雷达 skill 每季度写 `stance`，本 skill 只写日报字段。`publish` 先读底座帖再合并（`homepage_feed.merge_with_live`）：底座帖有 `radar_updated_at` 时信号雷达沿用采集器的；`topics`、`stance` 始终保留。
 
 ```bash
-python3 /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/scripts/run.py feed --report-date YYYY-MM-DD            # 只生成本地 _首页数据.json 预览
-python3 /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/scripts/run.py feed --report-date YYYY-MM-DD --confirm  # 更新首页（外部写入）
+python3 /Users/sr_jm/gw_llm_ai_pulse/skills/ai-radar-daily/scripts/run.py feed --report-date YYYY-MM-DD            # 只生成本地 _首页数据.json 预览
+python3 /Users/sr_jm/gw_llm_ai_pulse/skills/ai-radar-daily/scripts/run.py feed --report-date YYYY-MM-DD --confirm  # 更新首页（外部写入）
 ```
 
 - 确认口径：论坛发布前向用户展示审查材料时，一并说明“发布后同步更新论坛首页”；用户确认发布即视为同时授权本阶段（首页是论坛内的派生视图，数据与刚发布的正文一致）。用户明确说“先别动首页”时不执行。飞书推送仍须单独确认。
@@ -400,9 +400,9 @@ python3 $R/mark_reviewed.py ... --confirm                                       
 - 生成本地五表 knowledge package：Issues / Events / Sources / Judgments / Runs，并记录正文 SHA-256、证据索引、论坛 topic/post ID、修订版本与运行状态。命令：
 
 ```bash
-python3 /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/scripts/run.py package \
+python3 /Users/sr_jm/gw_llm_ai_pulse/skills/ai-radar-daily/scripts/run.py package \
   --report-date YYYY-MM-DD --confirm \
-  --env-file /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/.env
+  --env-file /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/.env
 ```
 
 - 成功即 `stage 7 PASS` + `knowledge_sync.status=PACKAGED` + `run_status=PACKAGED`；
@@ -441,9 +441,9 @@ python3 /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/scripts/
   设计意图：知识库是留档侧，不应早于推送；且避免同步失败反压推送。
 
 ```bash
-python3 /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/scripts/run.py sync-knowledge \
+python3 /Users/sr_jm/gw_llm_ai_pulse/skills/ai-radar-daily/scripts/run.py sync-knowledge \
   --report-date YYYY-MM-DD --confirm \
-  --env-file /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-radar-daily/.env
+  --env-file /Users/sr_jm/gw_llm_ai_pulse/work/ai-radar-daily/.env
 ```
 
 - 内部依次执行 `sync_lark_base.py`（五表）与 `sync_candidates_base.py`（候选全集表）。
@@ -587,7 +587,7 @@ STAGES 逐阶段 PASS 标记 / GATES / FORUM·FEISHU·SYNC·FEED / ERRORS），*
 `unittest` 风格，正确跑法（`tests/` 无 `__init__.py`，须先 cd 进去）：
 
 ```bash
-cd /Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/skills/ai-radar-daily/tests && \
+cd /Users/sr_jm/gw_llm_ai_pulse/skills/ai-radar-daily/tests && \
   python3 -m unittest discover -s . -p "test_*.py"
 ```
 

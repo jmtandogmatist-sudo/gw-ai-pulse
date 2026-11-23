@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.goldwind.gw-pulse.daily-brief</string>
+
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/bin/caffeinate</string>
+		<string>-i</string>
+		<string>/Users/sr_jm/gw_llm_ai_pulse/.venv/bin/python</string>
+		<string>-m</string>
+		<string>brief</string>
+		<string>run</string>
+		<string>--confirm</string>
+	</array>
+
+	<key>WorkingDirectory</key>
+	<string>/Users/sr_jm/gw_llm_ai_pulse/02-深度简报</string>
+
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>AIR_KEYCHAIN_SERVICE</key>
+		<string>gw-ai-pulse</string>
+		<key>TZ</key>
+		<string>Asia/Shanghai</string>
+		<key>PATH</key>
+		<string>/usr/bin:/bin:/usr/sbin:/sbin</string>
+	</dict>
+
+	<!-- 每日北京时间 08:30 运行（紧接 08:00 快轨采集之后，自动复用晨间一手底料） -->
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Hour</key><integer>8</integer>
+		<key>Minute</key><integer>30</integer>
+	</dict>
+
+	<key>StandardOutPath</key>
+	<string>/Users/sr_jm/gw_llm_ai_pulse/logs/launchd-daily-brief.out</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/sr_jm/gw_llm_ai_pulse/logs/launchd-daily-brief.err</string>
+</dict>
+</plist>

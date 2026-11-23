@@ -9,7 +9,7 @@
     ],
     "feed_topic_id": 632
   },
-  "work_dir": "/Users/sr_jm/Desktop/GlodWind/gw-ai-pulse/work/ai-topic-dossier",
+  "work_dir": "/Users/sr_jm/gw_llm_ai_pulse/work/ai-topic-dossier",
   "lookback_days": 7,
   "timeline_days": 30,
   "max_topics_on_home": 5,
